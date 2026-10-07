@@ -1,0 +1,21 @@
+# Lokale Arbeitsanweisungen und technische Abweichungsnotizen
+/AGENTS.md
+/ABWEICHUNGEN_BEISPIELPROJEKT.md
+
+# Python-Umgebung und Caches (nach dem FastAPI-Beispiel)
+.venv
+__pycache__/
+.pytest_cache
+.ruff_cache
+
+# Build- und Testergebnisse
+build/
+dist/
+htmlcov/
+.coverage
+report.html
+
+# Lokale Konfiguration und Laufzeitdateien
+.vscode/
+.env
+log/
