@@ -1,0 +1,6 @@
+id;version;matrikelnummer;nachname;vorname;email;username;erzeugt;aktualisiert
+1;0;123456;Mustermann;Max;max.mustermann@h-ka.de;admin;2026-10-01 00:00:00;2026-10-01 00:00:00
+20;0;654321;Musterfrau;Erika;erika.musterfrau@h-ka.de;erika;2026-10-02 00:00:00;2026-10-02 00:00:00
+30;0;111111;Schmidt;Lena;lena.schmidt@h-ka.de;lena;2026-10-03 00:00:00;2026-10-03 00:00:00
+40;0;222222;Becker;Jonas;jonas.becker@h-ka.de;jonas;2026-10-04 00:00:00;2026-10-04 00:00:00
+50;0;333333;Wagner;Sophie;sophie.wagner@h-ka.de;sophie;2026-10-05 00:00:00;2026-10-05 00:00:00

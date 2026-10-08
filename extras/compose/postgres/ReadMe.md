@@ -48,7 +48,7 @@ docker volume create pg_init
 
 - `pg_data`: die eigentlichen Datenbankdateien
 - `pg_tablespace`: Speicherort für den Tablespace `studentspace`
-- `pg_init`: SQL-Skripte sowie Zertifikat und Schlüssel für TLS
+- `pg_init`: SQL-Skripte, CSV-Testdaten sowie Zertifikat und Schlüssel für TLS
 
 ### Schritt 2: Volumes befüllen
 
@@ -67,13 +67,15 @@ In der Bash des Containers (Prompt `root@...:/#`):
 cp -r /tmp/init/* /init
 mkdir /tablespace/student
 chown -R postgres:postgres /init /tablespace
-chmod 400 /init/*/sql/* /init/tls/*
+chmod 400 /init/*/sql/* /init/*/csv/* /init/tls/*
 ls -lR /init
 ls -l /tablespace
 exit
 ```
 
-`ls -lR /init` muss `student/sql/create-db.sql`, `student/sql/create-schema.sql`
+`ls -lR /init` muss `student/sql/create-db.sql`, `student/sql/create-schema.sql`,
+die CSV-Dateien `student.csv`, `adresse.csv` und `pruefungsleistung.csv` in
+`student/csv`
 sowie `tls/server.crt` und `tls/server.key` zeigen, jeweils mit Owner `postgres`
 und Rechten `-r--------`.
 
@@ -203,6 +205,24 @@ Nach Eingabe des Passworts `p` muss `ssl` den Wert `on` haben und das aktuelle S
 
 ```powershell
 docker compose down
+```
+
+## Nachträglich: CSV-Testdaten in `pg_init` kopieren
+
+Nur nötig, wenn die Ersteinrichtung **vor** dem Hinzufügen von `init/student/csv`
+gemacht wurde (`ls -lR /init` zeigt dann kein Verzeichnis `student/csv`). Der
+Server muss dafür nicht laufen. Im Verzeichnis `extras\compose\postgres`:
+
+```powershell
+docker run -v pg_init:/init -v ./init:/tmp/init:ro --rm -it -u 0 --entrypoint '' postgres:19beta4-trixie /bin/bash
+```
+
+```bash
+cp -r /tmp/init/student/csv /init/student/
+chown -R postgres:postgres /init/student/csv
+chmod 400 /init/student/csv/*
+ls -l /init/student/csv
+exit
 ```
 
 ## Täglicher Betrieb
