@@ -2,6 +2,8 @@
 
 from typing import Any, Final
 
+from loguru import logger
+
 __all__ = ["StudentRepository"]
 
 # Beispieldaten im Speicher, bis die Datenbank angebunden ist
@@ -38,4 +40,7 @@ class StudentRepository:
         :param student_id: ID des gesuchten Studierenden
         :return: Daten des Studierenden oder None, falls es die ID nicht gibt
         """
-        return _STUDENTEN.get(student_id)
+        logger.debug("student_id={}", student_id)
+        student: Final = _STUDENTEN.get(student_id)
+        logger.debug("{}", student)
+        return student

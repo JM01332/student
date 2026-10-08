@@ -2,6 +2,8 @@
 
 from typing import Final
 
+from loguru import logger
+
 from student.config.config import app_config, resources_path
 
 __all__ = ["tls_certfile", "tls_keyfile"]
@@ -12,7 +14,9 @@ _tls_path: Final = resources_path / "tls"
 _key: Final[str] = _tls_toml.get("key", "key.pem")
 tls_keyfile: Final[str] = str(_tls_path / _key)
 """Pfad zum privaten Schlüssel für TLS."""
+logger.debug("private keyfile TLS: {}", tls_keyfile)
 
 _certificate: Final[str] = _tls_toml.get("certificate", "certificate.crt")
 tls_certfile: Final[str] = str(_tls_path / _certificate)
 """Pfad zum Zertifikat für TLS."""
+logger.debug("certfile TLS: {}", tls_certfile)
