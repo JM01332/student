@@ -88,6 +88,13 @@ Auskommentierte Einträge verwenden den Standardwert. Das Paket `student.config`
 stellt die Werte für die Anwendung bereit. Der private Schlüssel ist bewusst im
 Repository, da er nur für die lokale Entwicklung dient.
 
+## PostgreSQL
+
+Der Datenbankserver läuft als Docker-Container mit TLS (Datenbank, DB-User und Schema
+jeweils `student`). Die einmalige Einrichtung pro Rechner und der tägliche Start sind
+in [extras/compose/postgres/ReadMe.md](extras/compose/postgres/ReadMe.md) beschrieben.
+Die Anwendung greift noch nicht auf die Datenbank zu; das folgt mit SQLAlchemy.
+
 ## Manuelle Tests mit Bruno
 
 Die Bruno-Collection liegt in `extras/bruno/student` (OpenCollection-Format wie im
