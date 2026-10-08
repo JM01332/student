@@ -59,9 +59,17 @@ Der Eintrag `student = "student:main"` in `pyproject.toml` startet Uvicorn:
 uv run student
 ```
 
-Endpunkt: <https://127.0.0.1:8000/hello/>, API-Dokumentation:
-<https://127.0.0.1:8000/docs>. Da das Zertifikat selbstsigniert ist, zeigt der
-Browser beim ersten Aufruf eine Warnung, die man für die Entwicklung bestätigt.
+Endpunkte: <https://127.0.0.1:8000/hello/> und
+<https://127.0.0.1:8000/rest/1> (Studierender mit der ID 1). Da das Zertifikat
+selbstsigniert ist, zeigt der Browser beim ersten Aufruf eine Warnung, die man für
+die Entwicklung bestätigt.
+
+Jede Response enthält Security-Header (HSTS, `nosniff`, `X-Frame-Options`,
+Content-Security-Policy). Die Content-Security-Policy erlaubt nur Inhalte vom
+eigenen Server; die Swagger-Oberfläche unter `/docs` lädt ihre Skripte aber von
+einem CDN und bleibt deshalb im Browser leer. Die API-Beschreibung ist weiterhin
+unter <https://127.0.0.1:8000/openapi.json> abrufbar; zum manuellen Testen dient
+Bruno (siehe unten).
 
 Beenden mit `Strg+C`. Solange der Browser noch eine Verbindung offen hält, wartet
 Uvicorn bei „Shutting down“; dann den Tab schließen oder ein zweites Mal `Strg+C`
@@ -79,6 +87,19 @@ Start mit `tomllib` eingelesen:
 Auskommentierte Einträge verwenden den Standardwert. Das Paket `student.config`
 stellt die Werte für die Anwendung bereit. Der private Schlüssel ist bewusst im
 Repository, da er nur für die lokale Entwicklung dient.
+
+## Manuelle Tests mit Bruno
+
+Die Bruno-Collection liegt in `extras/bruno/student` (OpenCollection-Format wie im
+FastAPI-Beispiel). In Bruno (`C:\Zimmermann\Bruno\Bruno.exe`) über
+*Open Collection* den Ordner `extras\bruno\student` öffnen. Da das Zertifikat
+selbstsigniert ist, unter *Preferences > General* die Option
+*SSL/TLS Certificate Verification* deaktivieren.
+
+Jeder Request enthält Assertions (Statuscode, Header, Body). Mit dem Server im
+Hintergrund (`uv run student`) lassen sich alle Requests über *Run* auf der
+Collection auf einmal ausführen. Die Variable `baseUrl` steht in
+`opencollection.yml`.
 
 ## Tests und Codeprüfung
 
@@ -193,5 +214,11 @@ Gearbeitet wird nach der `VORGEHENSWEISE.md` aus dem FastAPI-Beispiel.
 Abgeschlossen sind die Abschnitte „Elementare Infrastruktur und einfacher Server“
 (Endpunkt, HTTPS, Konfiguration mit TOML) und „Codeanalyse, Formatierung,
 Typprüfung und Sicherheit“ (Ruff, ty, CI, uv audit, SonarQube, OWASP Dependency
-Check). Als Nächstes folgt der Abschnitt „Infrastruktur“: Schichtenarchitektur,
-Service und Dependency Injection, Router-Aufteilung, gzip und Security-Header.
+Check) sowie „Infrastruktur“ (Schichten Router → Service → Repository mit
+Dependency Injection, gebündelte Router, gzip, Security-Header). Bruno ist bereits
+eingerichtet. Als Nächstes folgt der Abschnitt „REST-Schnittstelle, DB-Zugriff,
+Validierung, Bruno und Testen“.
+
+Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
+Prüfungsleistungen. Bis zur Anbindung von PostgreSQL liefert das Repository
+Beispieldaten aus dem Speicher.
