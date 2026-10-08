@@ -19,3 +19,6 @@ report.html
 .vscode/
 .env
 log/
+
+# Arbeitsverzeichnis des Sonar-Scanners
+.scannerwork/
