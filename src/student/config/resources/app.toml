@@ -8,3 +8,7 @@
 [tls]
 # key = "key.pem"
 # certificate = "certificate.crt"
+
+[logger]
+# debug-level = false: nur INFO und höher, sonst auch DEBUG
+debug-level = true
