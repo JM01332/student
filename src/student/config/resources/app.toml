@@ -1,0 +1,6 @@
+# Konfiguration für den Appserver "student"
+# TOML = Tom's Obvious, Minimal Language
+
+[server]
+# host-binding = "127.0.0.1"
+# port = 8000
