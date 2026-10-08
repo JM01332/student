@@ -31,3 +31,25 @@ def get_by_id(
         logger.debug("Kein Student mit der ID {}", student_id)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return student
+
+
+@student_router.get("")
+def get(
+    service: Annotated[StudentService, Depends(get_service)],
+    nachname: str | None = None,
+    email: str | None = None,
+) -> list[dict[str, Any]]:
+    """Suche mit Query-Parametern.
+
+    :param service: Injizierter Service für Geschäftslogik
+    :param nachname: Optionaler Query-Parameter für einen Teil des Nachnamens
+    :param email: Optionaler Query-Parameter für die Emailadresse
+    :return: Liste der gefundenen Studierenden
+    :raises HTTPException: 404, falls keine Studierenden gefunden wurden
+    """
+    logger.debug("nachname={}, email={}", nachname, email)
+    studenten: Final = service.find(nachname=nachname, email=email)
+    if not studenten:
+        logger.debug("Keine Studierenden gefunden")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return studenten

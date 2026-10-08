@@ -24,3 +24,13 @@ class StudentService:
         """
         logger.debug("student_id={}", student_id)
         return self.repo.find_by_id(student_id)
+
+    def find(self, nachname: str | None, email: str | None) -> list[dict[str, Any]]:
+        """Studierende mit optionalen Suchparametern suchen.
+
+        :param nachname: Teil des Nachnamens
+        :param email: Emailadresse
+        :return: Liste der gefundenen Studierenden, ggf. leer
+        """
+        logger.debug("nachname={}, email={}", nachname, email)
+        return self.repo.find(nachname=nachname, email=email)

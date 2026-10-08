@@ -1,0 +1,11 @@
+info:
+  name: Suche mit Suchparameter
+  type: folder
+  seq: 2
+
+request:
+  auth: inherit
+
+docs:
+  content: Suche nach Studierenden über die REST-Schnittstelle mit Query-Parametern.
+  type: text/markdown

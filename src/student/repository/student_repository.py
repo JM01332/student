@@ -44,3 +44,21 @@ class StudentRepository:
         student: Final = _STUDENTEN.get(student_id)
         logger.debug("{}", student)
         return student
+
+    def find(self, nachname: str | None, email: str | None) -> list[dict[str, Any]]:
+        """Suche mit optionalen Suchparametern.
+
+        :param nachname: Teil des Nachnamens, ohne Groß-/Kleinschreibung
+        :param email: Emailadresse, ohne Groß-/Kleinschreibung
+        :return: Liste der gefundenen Studierenden, ggf. leer
+        """
+        logger.debug("nachname={}, email={}", nachname, email)
+        studenten = list(_STUDENTEN.values())
+        if nachname is not None:
+            studenten = [
+                s for s in studenten if nachname.lower() in s["nachname"].lower()
+            ]
+        if email is not None:
+            studenten = [s for s in studenten if s["email"].lower() == email.lower()]
+        logger.debug("{}", studenten)
+        return studenten
