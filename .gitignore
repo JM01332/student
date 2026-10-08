@@ -22,3 +22,6 @@ log/
 
 # Arbeitsverzeichnis des Sonar-Scanners
 .scannerwork/
+
+# Report von OWASP Dependency Check
+dependency-check-report.html

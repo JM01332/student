@@ -20,6 +20,7 @@ build-backend = "uv_build"
 dev = [
     "httpx>=0.28.1,<1.0.0",
     "pytest>=9.1.0,<10.0.0",
+    "python-dotenv>=1.2.2,<2.0.0",
 ]
 lint = [
     "ruff>=0.16.9,<1.0.0",

@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<!-- Bewusst ignorierte Fehlalarme von OWASP Dependency Check -->
+<!-- https://dependency-check.github.io/DependencyCheck/general/suppression.html -->
+<suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.4.xsd">
+    <suppress>
+        <notes><![CDATA[Python-Paket opentelemetry-api: CVE betrifft nur opentelemetry-js (Node.js)]]></notes>
+        <packageUrl regex="true">^pkg:pypi/opentelemetry-api@.*$</packageUrl>
+        <cve>CVE-2026-54285</cve>
+    </suppress>
+</suppressions>
