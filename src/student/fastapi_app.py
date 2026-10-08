@@ -14,14 +14,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Python-Paket und Server-Einstiegspunkt für die Student-Anwendung."""
+"""FastAPI-Anwendung mit dem ersten Demo-Endpunkt."""
 
-from student.asgi_server import run
-from student.fastapi_app import app
+from typing import Final
 
-__all__ = ["app", "main"]
+from fastapi import FastAPI
 
+from student.router.hello_router import router as hello_router
 
-def main() -> None:
-    """Die Anwendung über das Skript `student` starten."""
-    run()
+app: Final = FastAPI()
+app.include_router(hello_router, prefix="/hello")

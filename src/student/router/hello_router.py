@@ -1,4 +1,4 @@
-# Copyright (C) 2023 - present Juergen Zimmermann, Hochschule Karlsruhe
+# Copyright (C) 2026 - present Juergen Zimmermann, Hochschule Karlsruhe
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -13,15 +13,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+"""HelloRouter."""
 
-"""Python-Paket und Server-Einstiegspunkt für die Student-Anwendung."""
+from typing import Final
 
-from student.asgi_server import run
-from student.fastapi_app import app
+from fastapi import APIRouter
 
-__all__ = ["app", "main"]
+__all__ = ["router"]
+
+router: Final = APIRouter(tags=["Hello"])
 
 
-def main() -> None:
-    """Die Anwendung über das Skript `student` starten."""
-    run()
+@router.get("/")
+def hello() -> dict[str, str]:
+    """Demo-Router für 'Hello World'.
+
+    :return: JSON-Datensatz mit 'Hello World'
+    :rtype: dict[str, Any]
+    """
+    return {"Hello": "World"}

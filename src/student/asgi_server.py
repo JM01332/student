@@ -14,14 +14,11 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-"""Python-Paket und Server-Einstiegspunkt für die Student-Anwendung."""
+"""Start der FastAPI-Anwendung mit Uvicorn."""
 
-from student.asgi_server import run
-from student.fastapi_app import app
-
-__all__ = ["app", "main"]
+import uvicorn
 
 
-def main() -> None:
-    """Die Anwendung über das Skript `student` starten."""
-    run()
+def run() -> None:
+    """Den lokalen Entwicklungsserver auf Port 8000 starten."""
+    uvicorn.run("student:app", host="127.0.0.1", port=8000)
