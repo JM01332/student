@@ -1,0 +1,44 @@
+# Aufruf:   docker compose up
+#           docker compose down
+
+---
+services:
+  sonarqube:
+    image: sonarqube:26.9.0.129388-community
+    ports:
+      # Port fuer HTTP
+      - published: 9000
+        target: 9000
+      # Port fuer H2
+      - published: 9092
+        target: 9092
+    volumes:
+      - type: bind
+        source: C:/Zimmermann/volumes/sonarqube/data
+        target: /opt/sonarqube/data
+      - type: bind
+        source: C:/Zimmermann/volumes/sonarqube/logs
+        target: /opt/sonarqube/logs
+      - type: bind
+        source: C:/Zimmermann/volumes/sonarqube/extensions
+        target: /opt/sonarqube/lib/extensions
+        read_only: true
+    environment:
+      TZ: Europe/Berlin
+    networks: [sonar-network]
+    hostname: sonarqube
+    container_name: sonarqube
+    cap_drop: [ALL]
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+        reservations:
+          cpus: "2.0"
+          memory: 2G
+
+networks:
+  sonar-network:
+    name: sonar-network
