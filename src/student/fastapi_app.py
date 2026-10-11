@@ -1,17 +1,40 @@
-"""FastAPI-Anwendung mit dem ersten Demo-Endpunkt."""
+"""FastAPI-Anwendung für die Verwaltung von Studierendendaten."""
 
+from contextlib import asynccontextmanager
 from time import time
 from typing import Final
-lazy from collections.abc import Awaitable, Callable
+lazy from collections.abc import AsyncGenerator, Awaitable, Callable
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.gzip import GZipMiddleware
 from loguru import logger
 
+from student.config import dev_db_populate
+from student.config.dev import db_populate
+from student.repository import engine
 from student.router import hello_router, student_router
 from student.security import set_response_headers
 
-app: Final = FastAPI()
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
+    """DB beim Start im Dev-Modus neu laden und beim Herunterfahren freigeben.
+
+    Code vor `yield` läuft beim Start des Servers, Code danach beim Herunterfahren.
+
+    :param _app: Die FastAPI-Anwendung (von FastAPI übergeben, hier nicht benötigt)
+    """
+    if dev_db_populate:
+        db_populate()
+    try:
+        yield
+    finally:
+        logger.info("Der Server wird heruntergefahren")
+        logger.info("Connection-Pool fuer die DB wird getrennt")
+        engine.dispose()
+
+
+app: Final = FastAPI(lifespan=lifespan)
 
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
