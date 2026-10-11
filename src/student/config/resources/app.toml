@@ -12,3 +12,13 @@
 [logger]
 # debug-level = false: nur INFO und höher, sonst auch DEBUG
 debug-level = true
+
+[db]
+# dialect = "postgresql"
+# name = "student"
+# username = "student"
+password = "p"
+# host = "postgres": App im Docker-Netz, "localhost": App auf dem Host-Rechner
+host = "localhost"
+# SQL-Anweisungen von SQLAlchemy protokollieren
+log-statements = true
