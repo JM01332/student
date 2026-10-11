@@ -4,12 +4,19 @@ FastAPI-Appserver zur Verwaltung von Studierendendaten.
 
 ## Stand und Technik
 
-Eine minimale FastAPI-Anwendung unter `src/student/` ist eingerichtet.
-`GET /hello/` liefert HTTP 200 mit `{"Hello": "World"}` als JSON.
-Der Server läuft über HTTPS mit einem selbstsignierten Zertifikat; Host, Port und
-TLS-Dateien kommen aus der Konfigurationsdatei `app.toml`.
-Ein HTTP-Test prüft Statuscode, Content-Type und Antwort ohne externe Dienste.
-Geplant: REST und GraphQL, Pydantic, SQLAlchemy/PostgreSQL, Keycloak und Docker.
+Die FastAPI-Anwendung unter `src/student/` liest Studierende mit Adresse (1:1) und
+Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
+
+- `GET /rest/{id}`: ein Studierender anhand der ID
+- `GET /rest?nachname=...&email=...`: Suche (Teil des Nachnamens bzw. Emailadresse,
+  jeweils ohne Groß-/Kleinschreibung); ohne Parameter alle Studierenden
+- `GET /hello/`: Demo-Endpunkt
+
+Aufbau: Router → Service → Repository mit Dependency Injection, Entities für
+SQLAlchemy und DTOs als Rückgabe des Service. Der Server läuft über HTTPS mit einem
+selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
+Geplant: Schreiben (POST, PUT, DELETE), Validierung mit Pydantic, GraphQL, Keycloak
+und Docker.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
 
@@ -36,9 +43,9 @@ Im Projektverzeichnis die virtuelle Umgebung und alle Abhängigkeiten einrichten
 uv sync --all-groups
 ```
 
-Das Paket wird dabei aus `src/student/` installiert. FastAPI und Uvicorn werden
-zur Laufzeit benötigt, pytest, httpx und python-dotenv für Tests und Hilfsskripte
-sowie Ruff und ty für die Codeprüfung. `uv.lock` hält die aufgelösten Versionen fest.
+Das Paket wird dabei aus `src/student/` installiert. Zur Laufzeit werden FastAPI,
+Uvicorn, loguru, SQLAlchemy und psycopg benötigt, für Tests und Hilfsskripte
+pytest, pytest-mock, httpx und python-dotenv sowie Ruff und ty für die Codeprüfung. `uv.lock` hält die aufgelösten Versionen fest.
 
 Für Python 3.15 gibt es noch kein fertiges Wheel von `pydantic-core`. uv baut das
 Paket deshalb beim ersten `uv sync` mit Rust aus dem Quellcode; das dauert einige
@@ -53,14 +60,20 @@ Copy-Item .env.example .env
 
 ## Server starten
 
-Der Eintrag `student = "student:main"` in `pyproject.toml` startet Uvicorn:
+Vorher muss PostgreSQL laufen (siehe [PostgreSQL](#postgresql)). Der Eintrag
+`student = "student:main"` in `pyproject.toml` startet Uvicorn:
 
 ```powershell
 uv run student
 ```
 
-Endpunkte: <https://127.0.0.1:8000/hello/> und
-<https://127.0.0.1:8000/rest/1> (Studierender mit der ID 1). Da das Zertifikat
+Im Dev-Modus (`[dev] db-populate = true` in `app.toml`) wird die Datenbank bei jedem
+Start mit `drop.sql`, `create.sql` und den CSV-Testdaten neu geladen; im Log
+erscheint dann `>>> Die DB wurde neu geladen <<<`. Nach Code-Änderungen den Server
+neu starten, da Uvicorn geänderten Code nicht automatisch lädt.
+
+Endpunkte: <https://127.0.0.1:8000/rest/1>, <https://127.0.0.1:8000/rest> und
+<https://127.0.0.1:8000/rest?nachname=muster>. Da das Zertifikat
 selbstsigniert ist, zeigt der Browser beim ersten Aufruf eine Warnung, die man für
 die Entwicklung bestätigt.
 
@@ -83,6 +96,11 @@ Start mit `tomllib` eingelesen:
 - `[server]`: `host-binding` (Standard `127.0.0.1`) und `port` (Standard `8000`)
 - `[tls]`: Dateinamen von `key` (Standard `key.pem`) und `certificate`
   (Standard `certificate.crt`) im Verzeichnis `resources/tls/`
+- `[logger]`: `debug-level` für DEBUG-Ausgaben in Konsole und `log/app.log`
+- `[db]`: Zugangsdaten für PostgreSQL (`host = "localhost"` für die App auf dem
+  Host-Rechner), `password-admin` für den Superuser beim Neuladen,
+  `log-statements` zum Protokollieren der SQL-Anweisungen
+- `[dev]`: `db-populate` lädt die Datenbank beim Start neu
 
 Auskommentierte Einträge verwenden den Standardwert. Das Paket `student.config`
 stellt die Werte für die Anwendung bereit. Der private Schlüssel ist bewusst im
@@ -93,7 +111,17 @@ Repository, da er nur für die lokale Entwicklung dient.
 Der Datenbankserver läuft als Docker-Container mit TLS (Datenbank, DB-User und Schema
 jeweils `student`). Die einmalige Einrichtung pro Rechner und der tägliche Start sind
 in [extras/compose/postgres/ReadMe.md](extras/compose/postgres/ReadMe.md) beschrieben.
-Die Anwendung greift noch nicht auf die Datenbank zu; das folgt mit SQLAlchemy.
+Täglicher Start:
+
+```powershell
+cd extras\compose\postgres
+docker compose up
+```
+
+Tabellen: `src/student/config/resources/postgresql/create.sql` (und `drop.sql`),
+Testdaten: `extras/compose/postgres/init/student/csv` (5 Studierende mit den IDs 1,
+20, 30, 40 und 50). Die Anwendung verbindet sich mit `sslmode=verify-full` und
+vertraut dem DB-Zertifikat über `src/student/config/resources/postgresql/server.crt`.
 
 ## Manuelle Tests mit Bruno
 
@@ -146,7 +174,8 @@ offener Punkt für ein späteres Dependency-Paket.
 ## Continuous Integration
 
 Der Workflow [CI](.github/workflows/ci.yml) führt bei Push und Pull Request auf
-GitHub den HTTP-Test, Ruff, die Formatprüfung und ty aus. Er läuft auf Ubuntu
+GitHub die Unit-Tests, Ruff, die Formatprüfung und ty aus. Die Integrationstests
+brauchen Server und Datenbank und laufen deshalb nur lokal. Er läuft auf Ubuntu
 mit uv 0.12.23 und Python `"3.15"` mit `allow-prereleases: true`. Solange es
 kein finales Python 3.15 gibt, wird der neueste Release Candidate verwendet,
 danach automatisch die finale Version.
@@ -154,7 +183,7 @@ danach automatisch die finale Version.
 `uv sync --locked --all-groups` installiert die Abhängigkeiten aus `uv.lock`
 und bricht ab, falls die Lockdatei nicht zur Projektkonfiguration passt.
 Auch die Prüfungen verwenden `uv run --locked`. Externe Dienste und Secrets
-sind für den bestehenden Test nicht erforderlich.
+sind für die Unit-Tests nicht erforderlich.
 
 Die Einrichtung orientiert sich an der
 [offiziellen uv-Anleitung für GitHub Actions](https://docs.astral.sh/uv/guides/integration/github/).
@@ -235,10 +264,13 @@ Abgeschlossen sind die Abschnitte „Elementare Infrastruktur und einfacher Serv
 (Endpunkt, HTTPS, Konfiguration mit TOML) und „Codeanalyse, Formatierung,
 Typprüfung und Sicherheit“ (Ruff, ty, CI, uv audit, SonarQube, OWASP Dependency
 Check) sowie „Infrastruktur“ (Schichten Router → Service → Repository mit
-Dependency Injection, gebündelte Router, gzip, Security-Header). Bruno ist bereits
-eingerichtet. Als Nächstes folgt der Abschnitt „REST-Schnittstelle, DB-Zugriff,
-Validierung, Bruno und Testen“.
+Dependency Injection, gebündelte Router, gzip, Security-Header).
+
+Im Abschnitt „REST-Schnittstelle, DB-Zugriff, Validierung, Bruno und Testen“ sind
+erledigt: Logging mit loguru, Pfad- und Query-Parameter, OR-Mapping mit SQLAlchemy
+und PostgreSQL einschließlich Fetch-Join, Neuladen der DB im Dev-Modus, Bruno,
+Unit-Tests mit Mocks, Integrationstests mit pytest und httpx sowie CI. Als Nächstes
+folgen Fehlerbehandlung, Header und Statuscodes, Validierung mit Pydantic und POST.
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
-Prüfungsleistungen. Bis zur Anbindung von PostgreSQL liefert das Repository
-Beispieldaten aus dem Speicher.
+Prüfungsleistungen (siehe `src/student/entity`).

@@ -18,7 +18,7 @@ runtime:
       value: "200"
     - expression: res.body
       operator: length
-      value: "2"
+      value: "5"
 
 settings:
   encodeUrl: true

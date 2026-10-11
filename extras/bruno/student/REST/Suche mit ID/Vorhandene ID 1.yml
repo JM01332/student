@@ -34,6 +34,9 @@ runtime:
       value: Karlsruhe
     - expression: res.body.pruefungsleistungen
       operator: isArray
+    - expression: res.body.pruefungsleistungen
+      operator: length
+      value: "2"
 
 settings:
   encodeUrl: true

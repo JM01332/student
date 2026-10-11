@@ -233,7 +233,12 @@ docker compose up      # starten, Fenster offen lassen
 docker compose down    # in einer 2. PowerShell: herunterfahren
 ```
 
-Die Daten bleiben in den Volumes erhalten.
+Die Daten bleiben in den Volumes erhalten. Tabellen und Testdaten legt die Anwendung
+selbst an: Im Dev-Modus (`[dev] db-populate = true` in
+`src/student/config/resources/app.toml`) lädt `uv run student` die Datenbank bei
+jedem Start mit `drop.sql`, `create.sql` und den CSV-Dateien aus `/init/student/csv`
+neu. Dafür müssen die CSV-Dateien im Volume `pg_init` liegen (Schritt 2 bzw.
+[Nachträglich: CSV-Testdaten in `pg_init` kopieren](#nachträglich-csv-testdaten-in-pg_init-kopieren)).
 
 ## Häufige Probleme
 
