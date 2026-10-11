@@ -110,15 +110,27 @@ Collection auf einmal ausführen. Die Variable `baseUrl` steht in
 
 ## Tests und Codeprüfung
 
-Die Tests verwenden FastAPIs `TestClient`; ein separat gestarteter Server,
-PostgreSQL und Keycloak sind dafür nicht erforderlich.
+Es gibt zwei Arten von Tests, wie im FastAPI-Beispiel:
+
+- **Unit-Tests** (`tests/unit`) brauchen weder Server noch Datenbank und laufen auch
+  in der CI.
+- **Integrationstests** (`tests/integration`) schicken mit httpx echte
+  HTTPS-Requests an den laufenden Server. Vorher PostgreSQL und den Server
+  (`uv run student`) starten; sonst bricht der Testlauf mit einem Hinweis ab. Sie
+  laufen nur lokal.
 
 ```powershell
-uv run pytest
+uv run pytest tests/unit          # nur Unit-Tests
+uv run pytest                     # alle Tests, Server muss laufen
 uv run ruff check --preview src tests
 uv run ruff format --preview --check src tests
 uv run ty check src tests
 ```
+
+Meldet Windows bei `uv run pytest` „Eine Anwendungssteuerungsrichtlinie hat diese
+Datei blockiert“, blockiert die Anwendungssteuerung (z.B. Smart App Control) die
+lokal erzeugte `pytest.exe`. Gleichwertig ist dann der Aufruf über den
+Python-Interpreter, z.B. `uv run python -m pytest tests/unit`.
 
 Ruff verwendet das Regelset aus dem FastAPI-Beispiel (`[tool.ruff.lint]` in
 `pyproject.toml`), unter anderem mit Regeln für Sicherheit, Docstrings und

@@ -2,15 +2,12 @@
 
 from http import HTTPStatus
 
-from fastapi.testclient import TestClient
-
-from student.fastapi_app import app
+lazy from httpx import Client
 
 
-def test_security_header() -> None:
+def test_security_header(client: Client) -> None:
     """Jede Response enthält die Header für IT-Sicherheit."""
-    with TestClient(app) as client:
-        response = client.get("/hello/")
+    response = client.get("/hello/")
 
     assert response.status_code == HTTPStatus.OK
     headers = response.headers
@@ -25,10 +22,9 @@ def test_security_header() -> None:
     assert headers["x-xss-protection"] == "1; mode=block"
 
 
-def test_security_header_bei_fehler() -> None:
+def test_security_header_bei_fehler(client: Client) -> None:
     """Auch Fehler-Responses wie 404 enthalten die Security-Header."""
-    with TestClient(app) as client:
-        response = client.get("/rest/999")
+    response = client.get("/rest/999")
 
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.headers["x-content-type-options"] == "nosniff"
