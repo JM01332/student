@@ -3,6 +3,11 @@
 from typing import Any, Final
 
 from loguru import logger
+from sqlalchemy import select
+from sqlalchemy.orm import joinedload, selectinload
+lazy from sqlalchemy.orm import Session
+
+from student.entity import Student
 
 __all__ = ["StudentRepository"]
 
@@ -34,14 +39,27 @@ _STUDENTEN: Final[dict[int, dict[str, Any]]] = {
 class StudentRepository:
     """Repository-Klasse mit Lesezugriff auf Studierende."""
 
-    def find_by_id(self, student_id: int) -> dict[str, Any] | None:
-        """Suche mit der Student-ID.
+    def find_by_id(self, student_id: int, session: Session) -> Student | None:
+        """Suche mit der Student-ID in der DB.
+
+        Die Adresse wird per JOIN mitgeladen (1:1), die Prüfungsleistungen mit
+        einer zweiten Abfrage per `IN` (1:N), damit kein N+1-Problem entsteht.
 
         :param student_id: ID des gesuchten Studierenden
-        :return: Daten des Studierenden oder None, falls es die ID nicht gibt
+        :param session: Session für SQLAlchemy
+        :return: Der gefundene Studierende oder None
+        :rtype: Student | None
         """
         logger.debug("student_id={}", student_id)
-        student: Final = _STUDENTEN.get(student_id)
+        statement: Final = (
+            select(Student)
+            .options(
+                joinedload(Student.adresse),
+                selectinload(Student.pruefungsleistungen),
+            )
+            .where(Student.id == student_id)
+        )
+        student: Final = session.scalar(statement)
         logger.debug("{}", student)
         return student
 

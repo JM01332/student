@@ -1,15 +1,17 @@
-"""Unit-Tests für StudentService mit einem Mock statt des echten Repositorys."""
+"""Unit-Tests für StudentService mit Mocks statt Repository und Session."""
 
+from decimal import Decimal
 from typing import Any
 lazy from unittest.mock import Mock
 
 import pytest
 lazy from pytest_mock import MockerFixture
 
+from student.entity import Adresse, Pruefungsleistung, Student
 from student.repository import StudentRepository
 from student.service import StudentService
 
-STUDENT_MOCK: dict[str, Any] = {
+STUDENT_DICT_MOCK: dict[str, Any] = {
     "id": 1,
     "matrikelnummer": "123456",
     "nachname": "Mocktest",
@@ -27,32 +29,96 @@ def repo_mock(mocker: MockerFixture) -> Mock:
 
 
 @pytest.fixture
+def session_mock(mocker: MockerFixture) -> Mock:
+    """Attrappe für die Session, die `with Session() as session:` zurückliefert."""
+    session = mocker.Mock()
+    # "Session" im Modul student_service durch eine Attrappe ersetzen, die als
+    # Context Manager bei __enter__ die Session-Attrappe liefert
+    mocker.patch(
+        "student.service.student_service.Session",
+        return_value=mocker.MagicMock(
+            __enter__=lambda _self: session,
+            __exit__=lambda _self, _exc_type, _exc, _tb: None,
+        ),
+    )
+    return session
+
+
+@pytest.fixture
 def service(repo_mock: Mock) -> StudentService:
     """Service mit der Attrappe statt des echten Repositorys."""
     return StudentService(repo=repo_mock)
 
 
-def test_find_by_id(service: StudentService, repo_mock: Mock) -> None:
-    """Die Suche mit der ID liefert die Daten aus dem Repository."""
+def _student_entity() -> Student:
+    """Student-Entity mit Adresse und einer Prüfungsleistung als Testdaten."""
+    student = Student(
+        id=1,
+        matrikelnummer="123456",
+        nachname="Mocktest",
+        vorname="Max",
+        username="mocktest",
+        email="mock@h-ka.de",
+        adresse=None,
+        pruefungsleistungen=[],
+        erzeugt=None,
+        aktualisiert=None,
+    )
+    student.adresse = Adresse(
+        plz="11111",
+        ort="Mockort",
+        id=1,
+        student_id=1,
+        student=None,
+    )
+    student.pruefungsleistungen.append(
+        Pruefungsleistung(
+            modul="Softwareengineering",
+            note=Decimal("1.3"),
+            semester="WS 2026/27",
+            id=1,
+            student_id=1,
+            student=None,
+        ),
+    )
+    return student
+
+
+def test_find_by_id(
+    service: StudentService,
+    repo_mock: Mock,
+    session_mock: Mock,
+) -> None:
+    """Die Suche mit der ID liefert ein DTO mit den Daten der Entity."""
     # Arrange
-    repo_mock.find_by_id.return_value = STUDENT_MOCK
+    repo_mock.find_by_id.return_value = _student_entity()
 
     # Act
     student = service.find_by_id(student_id=1)
 
     # Assert
-    assert student == STUDENT_MOCK
-    repo_mock.find_by_id.assert_called_once_with(1)
+    assert student is not None
+    assert student.id == 1
+    assert student.nachname == "Mocktest"
+    assert student.adresse is not None
+    assert student.adresse.ort == "Mockort"
+    assert [p.note for p in student.pruefungsleistungen] == [Decimal("1.3")]
+    repo_mock.find_by_id.assert_called_once_with(student_id=1, session=session_mock)
+    session_mock.commit.assert_called_once()
 
 
-def test_find_by_id_nicht_vorhanden(service: StudentService, repo_mock: Mock) -> None:
+def test_find_by_id_nicht_vorhanden(
+    service: StudentService,
+    repo_mock: Mock,
+    session_mock: Mock,
+) -> None:
     """Die Suche mit der ID liefert None, wenn das Repository nichts findet."""
     repo_mock.find_by_id.return_value = None
 
     student = service.find_by_id(student_id=999)
 
     assert student is None
-    repo_mock.find_by_id.assert_called_once_with(999)
+    repo_mock.find_by_id.assert_called_once_with(student_id=999, session=session_mock)
 
 
 def test_find_reicht_suchparameter_weiter(
@@ -60,9 +126,9 @@ def test_find_reicht_suchparameter_weiter(
     repo_mock: Mock,
 ) -> None:
     """Die Suche gibt die Suchparameter unverändert an das Repository weiter."""
-    repo_mock.find.return_value = [STUDENT_MOCK]
+    repo_mock.find.return_value = [STUDENT_DICT_MOCK]
 
     studenten = service.find(nachname="mock", email=None)
 
-    assert studenten == [STUDENT_MOCK]
+    assert studenten == [STUDENT_DICT_MOCK]
     repo_mock.find.assert_called_once_with(nachname="mock", email=None)

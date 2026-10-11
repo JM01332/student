@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
 
 from student.router.dependencies import get_service
-lazy from student.service import StudentService
+lazy from student.service import StudentDTO, StudentService
 
 __all__ = ["student_router"]
 
@@ -17,12 +17,12 @@ student_router: Final = APIRouter(tags=["Lesen"])
 def get_by_id(
     student_id: int,
     service: Annotated[StudentService, Depends(get_service)],
-) -> dict[str, Any]:
+) -> StudentDTO:
     """Suche mit der Student-ID.
 
     :param student_id: ID des gesuchten Studierenden als Pfadparameter
     :param service: Injizierter Service für Geschäftslogik
-    :return: Daten des gefundenen Studierenden
+    :return: Daten des gefundenen Studierenden, von FastAPI als JSON ausgegeben
     :raises HTTPException: 404, falls es die ID nicht gibt
     """
     logger.debug("student_id={}", student_id)
