@@ -41,4 +41,4 @@ jobs:
         run: uv run --locked ruff format --preview --check src tests
 
       - name: Check types
-        run: uv run --locked ty check src tests/integration
+        run: uv run --locked ty check src tests

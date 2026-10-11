@@ -117,7 +117,7 @@ PostgreSQL und Keycloak sind dafür nicht erforderlich.
 uv run pytest
 uv run ruff check --preview src tests
 uv run ruff format --preview --check src tests
-uv run ty check src tests/integration
+uv run ty check src tests
 ```
 
 Ruff verwendet das Regelset aus dem FastAPI-Beispiel (`[tool.ruff.lint]` in
@@ -125,7 +125,8 @@ Ruff verwendet das Regelset aus dem FastAPI-Beispiel (`[tool.ruff.lint]` in
 Import-Sortierung. Die Prüfungen vor jedem Push lokal ausführen, da die CI sonst
 fehlschlägt.
 
-`tests/unit` wird bei der Typprüfung ergänzt, sobald dort Tests vorhanden sind.
+Unit-Tests in `tests/unit` testen einzelne Klassen wie den Service mit Mocks
+(`pytest-mock`) statt echter Abhängigkeiten.
 Beim Testlauf erscheint eine Deprecation-Warnung zur Nutzung von httpx im
 TestClient mit dem Hinweis auf httpx2. Der Test besteht; die Umstellung bleibt ein
 offener Punkt für ein späteres Dependency-Paket.

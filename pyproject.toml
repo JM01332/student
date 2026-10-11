@@ -23,6 +23,7 @@ build-backend = "uv_build"
 dev = [
     "httpx>=0.28.1,<1.0.0",
     "pytest>=9.1.0,<10.0.0",
+    "pytest-mock>=3.16.0,<4.0.0",
     "python-dotenv>=1.2.2,<2.0.0",
 ]
 lint = [
@@ -32,7 +33,7 @@ lint = [
 
 [tool.pytest.ini_options]
 minversion = "9.1.0"
-testpaths = ["tests/integration"]
+testpaths = ["tests/unit", "tests/integration"]
 
 [tool.ruff]
 preview = true
