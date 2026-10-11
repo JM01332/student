@@ -1,7 +1,6 @@
 """Unit-Tests für StudentService mit Mocks statt Repository und Session."""
 
 from decimal import Decimal
-from typing import Any
 lazy from unittest.mock import Mock
 
 import pytest
@@ -10,16 +9,6 @@ lazy from pytest_mock import MockerFixture
 from student.entity import Adresse, Pruefungsleistung, Student
 from student.repository import StudentRepository
 from student.service import StudentService
-
-STUDENT_DICT_MOCK: dict[str, Any] = {
-    "id": 1,
-    "matrikelnummer": "123456",
-    "nachname": "Mocktest",
-    "vorname": "Max",
-    "email": "mock@h-ka.de",
-    "adresse": {"plz": "11111", "ort": "Mockort"},
-    "pruefungsleistungen": [],
-}
 
 
 @pytest.fixture
@@ -121,14 +110,33 @@ def test_find_by_id_nicht_vorhanden(
     repo_mock.find_by_id.assert_called_once_with(student_id=999, session=session_mock)
 
 
-def test_find_reicht_suchparameter_weiter(
+def test_find(
     service: StudentService,
     repo_mock: Mock,
+    session_mock: Mock,
 ) -> None:
-    """Die Suche gibt die Suchparameter unverändert an das Repository weiter."""
-    repo_mock.find.return_value = [STUDENT_DICT_MOCK]
+    """Die Suche gibt die Suchparameter weiter und liefert DTOs der Entities."""
+    repo_mock.find.return_value = [_student_entity()]
 
     studenten = service.find(nachname="mock", email=None)
 
-    assert studenten == [STUDENT_DICT_MOCK]
-    repo_mock.find.assert_called_once_with(nachname="mock", email=None)
+    assert [student.nachname for student in studenten] == ["Mocktest"]
+    repo_mock.find.assert_called_once_with(
+        nachname="mock",
+        email=None,
+        session=session_mock,
+    )
+    session_mock.commit.assert_called_once()
+
+
+def test_find_ohne_treffer(
+    service: StudentService,
+    repo_mock: Mock,
+    session_mock: Mock,  # ruff: ignore[unused-function-argument] - Fixture ersetzt nur die echte Session
+) -> None:
+    """Die Suche liefert eine leere Liste, wenn das Repository nichts findet."""
+    repo_mock.find.return_value = []
+
+    studenten = service.find(nachname="xyz", email=None)
+
+    assert studenten == []

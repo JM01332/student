@@ -1,6 +1,6 @@
 """StudentRouter."""
 
-from typing import Annotated, Any, Final
+from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
@@ -38,7 +38,7 @@ def get(
     service: Annotated[StudentService, Depends(get_service)],
     nachname: str | None = None,
     email: str | None = None,
-) -> list[dict[str, Any]]:
+) -> list[StudentDTO]:
     """Suche mit Query-Parametern.
 
     :param service: Injizierter Service für Geschäftslogik

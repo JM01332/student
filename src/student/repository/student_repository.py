@@ -1,9 +1,10 @@
 """Repository für den Datenzugriff auf Studierende."""
 
-from typing import Any, Final
+from typing import Final
+lazy from collections.abc import Sequence
 
 from loguru import logger
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload, selectinload
 lazy from sqlalchemy.orm import Session
 
@@ -11,33 +12,9 @@ from student.entity import Student
 
 __all__ = ["StudentRepository"]
 
-# Beispieldaten im Speicher, bis die Datenbank angebunden ist
-_STUDENTEN: Final[dict[int, dict[str, Any]]] = {
-    1: {
-        "id": 1,
-        "matrikelnummer": "123456",
-        "nachname": "Mustermann",
-        "vorname": "Max",
-        "email": "max.mustermann@h-ka.de",
-        "adresse": {"plz": "76133", "ort": "Karlsruhe"},
-        "pruefungsleistungen": [
-            {"modul": "Softwareengineering", "note": 1.3, "semester": "WS 2026/27"},
-        ],
-    },
-    2: {
-        "id": 2,
-        "matrikelnummer": "654321",
-        "nachname": "Musterfrau",
-        "vorname": "Erika",
-        "email": "erika.musterfrau@h-ka.de",
-        "adresse": {"plz": "76131", "ort": "Karlsruhe"},
-        "pruefungsleistungen": [],
-    },
-}
-
 
 class StudentRepository:
-    """Repository-Klasse mit Lesezugriff auf Studierende."""
+    """Repository-Klasse mit Lesezugriff auf Studierende in der DB."""
 
     def find_by_id(self, student_id: int, session: Session) -> Student | None:
         """Suche mit der Student-ID in der DB.
@@ -63,20 +40,30 @@ class StudentRepository:
         logger.debug("{}", student)
         return student
 
-    def find(self, nachname: str | None, email: str | None) -> list[dict[str, Any]]:
-        """Suche mit optionalen Suchparametern.
+    def find(
+        self,
+        nachname: str | None,
+        email: str | None,
+        session: Session,
+    ) -> Sequence[Student]:
+        """Suche mit optionalen Suchparametern in der DB.
 
         :param nachname: Teil des Nachnamens, ohne Groß-/Kleinschreibung
         :param email: Emailadresse, ohne Groß-/Kleinschreibung
-        :return: Liste der gefundenen Studierenden, ggf. leer
+        :param session: Session für SQLAlchemy
+        :return: Gefundene Studierende, nach ID sortiert, ggf. leer
+        :rtype: Sequence[Student]
         """
         logger.debug("nachname={}, email={}", nachname, email)
-        studenten = list(_STUDENTEN.values())
+        statement = select(Student).options(
+            joinedload(Student.adresse),
+            selectinload(Student.pruefungsleistungen),
+        )
         if nachname is not None:
-            studenten = [
-                s for s in studenten if nachname.lower() in s["nachname"].lower()
-            ]
+            # ILIKE: wie LIKE, aber ohne Unterscheidung von Groß-/Kleinschreibung
+            statement = statement.where(Student.nachname.ilike(f"%{nachname}%"))
         if email is not None:
-            studenten = [s for s in studenten if s["email"].lower() == email.lower()]
+            statement = statement.where(func.lower(Student.email) == email.lower())
+        studenten: Final = session.scalars(statement.order_by(Student.id)).all()
         logger.debug("{}", studenten)
         return studenten

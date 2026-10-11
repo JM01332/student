@@ -1,6 +1,6 @@
 """Geschäftslogik für Studierende."""
 
-from typing import Any, Final
+from typing import Final
 
 from loguru import logger
 
@@ -41,12 +41,25 @@ class StudentService:
         logger.debug("{}", student_dto)
         return student_dto
 
-    def find(self, nachname: str | None, email: str | None) -> list[dict[str, Any]]:
+    def find(self, nachname: str | None, email: str | None) -> list[StudentDTO]:
         """Studierende mit optionalen Suchparametern suchen.
 
         :param nachname: Teil des Nachnamens
         :param email: Emailadresse
         :return: Liste der gefundenen Studierenden, ggf. leer
+        :rtype: list[StudentDTO]
         """
         logger.debug("nachname={}, email={}", nachname, email)
-        return self.repo.find(nachname=nachname, email=email)
+        with Session() as session:
+            studenten: Final = self.repo.find(
+                nachname=nachname,
+                email=email,
+                session=session,
+            )
+            studenten_dto: Final = [
+                StudentDTO.from_student(student) for student in studenten
+            ]
+            session.commit()
+
+        logger.debug("{}", studenten_dto)
+        return studenten_dto

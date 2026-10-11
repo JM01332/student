@@ -25,7 +25,7 @@ def test_get_ohne_suchparameter(client: Client) -> None:
     response = client.get("/rest")
 
     assert response.status_code == HTTPStatus.OK
-    assert {student["id"] for student in response.json()} == {1, 2}
+    assert {student["id"] for student in response.json()} == {1, 20, 30, 40, 50}
 
 
 def test_get_teil_nachname(client: Client) -> None:
