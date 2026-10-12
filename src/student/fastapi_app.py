@@ -12,7 +12,7 @@ from loguru import logger
 from student.config import dev_db_populate
 from student.config.dev import db_populate
 from student.repository import engine
-from student.router import hello_router, student_router
+from student.router import health_router, hello_router, student_router
 from student.security import set_response_headers
 
 
@@ -78,6 +78,7 @@ async def log_response_time(
     return response
 
 
+app.include_router(health_router, prefix="/health")
 app.include_router(hello_router, prefix="/hello")
 app.include_router(student_router, prefix="/rest")
 
