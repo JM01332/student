@@ -23,9 +23,6 @@ runtime:
     - expression: res.body.nachname
       operator: eq
       value: Musterfrau
-    - expression: res.body.version
-      operator: eq
-      value: "0"
     - expression: res.body.pruefungsleistungen
       operator: isEmpty
 

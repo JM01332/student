@@ -269,8 +269,21 @@ Dependency Injection, gebündelte Router, gzip, Security-Header).
 Im Abschnitt „REST-Schnittstelle, DB-Zugriff, Validierung, Bruno und Testen“ sind
 erledigt: Logging mit loguru, Pfad- und Query-Parameter, OR-Mapping mit SQLAlchemy
 und PostgreSQL einschließlich Fetch-Join, Neuladen der DB im Dev-Modus, Bruno,
-Unit-Tests mit Mocks, Integrationstests mit pytest und httpx sowie CI. Als Nächstes
-folgen Fehlerbehandlung, Header und Statuscodes, Validierung mit Pydantic und POST.
+Unit-Tests mit Mocks, Integrationstests mit pytest und httpx sowie CI, Health-Router
+und Fehlerbehandlung mit `NotFoundError` und ProblemDetails.
+
+**Offen, in dieser Reihenfolge:**
+
+1. Response-Models mit Pydantic für die GET-Endpunkte (wie `PatientResponseModel` im
+   FastAPI-Beispiel)
+2. **ETag und `If-None-Match` (304) für `GET /rest/{id}` im Stil des Beispiels:** Der
+   Router baut die Antwort selbst mit
+   `JSONResponse(content=StudentResponseModel.from_dto(...).model_dump(mode="json"),
+   headers={"ETag": ...})` und zerlegt den Header `If-None-Match` wie
+   `patient_router.py` (Anführungszeichen, Zahl, `ValueError` abfangen). Bewusst
+   **nicht** über den kürzeren Weg mit `response: Response`, um nah am Beispiel zu
+   bleiben (einheitliches Muster für 201/204/304, keine zweite Validierung).
+3. Suchparameter als Pydantic-Modell und Pagination, danach POST mit Validierung.
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
 Prüfungsleistungen (siehe `src/student/entity`).
