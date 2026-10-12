@@ -5,15 +5,17 @@ from time import time
 from typing import Final
 lazy from collections.abc import AsyncGenerator, Awaitable, Callable
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.gzip import GZipMiddleware
 from loguru import logger
 
 from student.config import dev_db_populate
 from student.config.dev import db_populate
+from student.problem_details import ProblemDetails
 from student.repository import engine
 from student.router import health_router, hello_router, student_router
 from student.security import set_response_headers
+from student.service import NotFoundError
 
 
 @asynccontextmanager
@@ -98,3 +100,16 @@ async def add_security_headers(
     response: Final[Response] = await call_next(request)
     set_response_headers(response)
     return response
+
+
+@app.exception_handler(NotFoundError)
+def not_found_error_handler(_request: Request, err: NotFoundError) -> Response:
+    """Errorhandler für NotFoundError aus der Geschäftslogik.
+
+    :param _request: Request-Objekt (hier nicht benötigt)
+    :param err: NotFoundError aus dem Service
+    :return: Response mit Statuscode 404 und ProblemDetails
+    :rtype: Response
+    """
+    logger.debug("NotFoundError: {}", vars(err))
+    return ProblemDetails.create(status_code=status.HTTP_404_NOT_FOUND).to_response()

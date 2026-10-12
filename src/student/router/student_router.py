@@ -2,7 +2,7 @@
 
 from typing import Annotated, Final
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from loguru import logger
 
 from student.router.dependencies import get_service
@@ -23,14 +23,10 @@ def get_by_id(
     :param student_id: ID des gesuchten Studierenden als Pfadparameter
     :param service: Injizierter Service für Geschäftslogik
     :return: Daten des gefundenen Studierenden, von FastAPI als JSON ausgegeben
-    :raises HTTPException: 404, falls es die ID nicht gibt
+    :raises NotFoundError: Falls es die ID nicht gibt, als 404 durch den Handler
     """
     logger.debug("student_id={}", student_id)
-    student: Final = service.find_by_id(student_id)
-    if student is None:
-        logger.debug("Kein Student mit der ID {}", student_id)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    return student
+    return service.find_by_id(student_id)
 
 
 @student_router.get("")
@@ -45,11 +41,7 @@ def get(
     :param nachname: Optionaler Query-Parameter für einen Teil des Nachnamens
     :param email: Optionaler Query-Parameter für die Emailadresse
     :return: Liste der gefundenen Studierenden
-    :raises HTTPException: 404, falls keine Studierenden gefunden wurden
+    :raises NotFoundError: Falls nichts gefunden wurde, als 404 durch den Handler
     """
     logger.debug("nachname={}, email={}", nachname, email)
-    studenten: Final = service.find(nachname=nachname, email=email)
-    if not studenten:
-        logger.debug("Keine Studierenden gefunden")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    return studenten
+    return service.find(nachname=nachname, email=email)

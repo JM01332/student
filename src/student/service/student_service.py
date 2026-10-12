@@ -5,6 +5,7 @@ from typing import Final
 from loguru import logger
 
 from student.repository import Session
+from student.service.exceptions import NotFoundError
 from student.service.student_dto import StudentDTO
 lazy from student.repository import StudentRepository
 
@@ -18,12 +19,13 @@ class StudentService:
         """Konstruktor mit abhängigem StudentRepository."""
         self.repo: StudentRepository = repo
 
-    def find_by_id(self, student_id: int) -> StudentDTO | None:
+    def find_by_id(self, student_id: int) -> StudentDTO:
         """Einen Studierenden anhand der ID suchen.
 
         :param student_id: ID des gesuchten Studierenden
-        :return: Daten des Studierenden oder None, falls es die ID nicht gibt
-        :rtype: StudentDTO | None
+        :return: Daten des gefundenen Studierenden
+        :rtype: StudentDTO
+        :raises NotFoundError: Falls es keinen Studierenden mit der ID gibt
         """
         logger.debug("student_id={}", student_id)
         # "with" schließt die Session am Ende des Blocks, auch bei einem Fehler
@@ -33,7 +35,8 @@ class StudentService:
                 session=session,
             )
             if student is None:
-                return None
+                logger.debug("NotFoundError: student_id={}", student_id)
+                raise NotFoundError(student_id=student_id)
             # DTO erzeugen, solange die Session noch offen ist
             student_dto: Final = StudentDTO.from_student(student)
             session.commit()
@@ -46,8 +49,9 @@ class StudentService:
 
         :param nachname: Teil des Nachnamens
         :param email: Emailadresse
-        :return: Liste der gefundenen Studierenden, ggf. leer
+        :return: Liste der gefundenen Studierenden
         :rtype: list[StudentDTO]
+        :raises NotFoundError: Falls keine Studierenden gefunden wurden
         """
         logger.debug("nachname={}, email={}", nachname, email)
         with Session() as session:
@@ -56,6 +60,9 @@ class StudentService:
                 email=email,
                 session=session,
             )
+            if not studenten:
+                logger.debug("NotFoundError: nachname={}, email={}", nachname, email)
+                raise NotFoundError(nachname=nachname, email=email)
             studenten_dto: Final = [
                 StudentDTO.from_student(student) for student in studenten
             ]

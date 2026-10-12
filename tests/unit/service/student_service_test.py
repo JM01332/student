@@ -8,7 +8,10 @@ lazy from pytest_mock import MockerFixture
 
 from student.entity import Adresse, Pruefungsleistung, Student
 from student.repository import StudentRepository
-from student.service import StudentService
+from student.service import NotFoundError, StudentService
+
+NICHT_VORHANDENE_ID = 999
+"""ID, zu der das Repository-Mock nichts findet."""
 
 
 @pytest.fixture
@@ -101,13 +104,19 @@ def test_find_by_id_nicht_vorhanden(
     repo_mock: Mock,
     session_mock: Mock,
 ) -> None:
-    """Die Suche mit der ID liefert None, wenn das Repository nichts findet."""
+    """Die Suche mit der ID wirft NotFoundError, wenn das Repository nichts findet."""
     repo_mock.find_by_id.return_value = None
 
-    student = service.find_by_id(student_id=999)
+    # pytest.raises: der Test ist nur erfolgreich, wenn die Exception geworfen wird
+    with pytest.raises(NotFoundError) as err:
+        service.find_by_id(student_id=NICHT_VORHANDENE_ID)
 
-    assert student is None
-    repo_mock.find_by_id.assert_called_once_with(student_id=999, session=session_mock)
+    assert err.value.student_id == NICHT_VORHANDENE_ID
+    repo_mock.find_by_id.assert_called_once_with(
+        student_id=NICHT_VORHANDENE_ID,
+        session=session_mock,
+    )
+    session_mock.commit.assert_not_called()
 
 
 def test_find(
@@ -134,9 +143,10 @@ def test_find_ohne_treffer(
     repo_mock: Mock,
     session_mock: Mock,  # ruff: ignore[unused-function-argument] - Fixture ersetzt nur die echte Session
 ) -> None:
-    """Die Suche liefert eine leere Liste, wenn das Repository nichts findet."""
+    """Die Suche wirft NotFoundError, wenn das Repository nichts findet."""
     repo_mock.find.return_value = []
 
-    studenten = service.find(nachname="xyz", email=None)
+    with pytest.raises(NotFoundError) as err:
+        service.find(nachname="xyz", email=None)
 
-    assert studenten == []
+    assert err.value.nachname == "xyz"

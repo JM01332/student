@@ -16,6 +16,12 @@ runtime:
     - expression: res.status
       operator: eq
       value: "404"
+    - expression: res.headers['content-type']
+      operator: eq
+      value: application/problem+json
+    - expression: res.body.title
+      operator: eq
+      value: Not Found
 
 settings:
   encodeUrl: true

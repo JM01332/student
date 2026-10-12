@@ -14,10 +14,12 @@ def test_get_by_id(client: Client) -> None:
 
 
 def test_get_by_id_not_found(client: Client) -> None:
-    """Für eine nicht vorhandene ID wird HTTP 404 geliefert."""
+    """Für eine nicht vorhandene ID wird HTTP 404 mit ProblemDetails geliefert."""
     response = client.get("/rest/999")
 
     assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Not Found"
 
 
 def test_get_ohne_suchparameter(client: Client) -> None:
@@ -54,7 +56,9 @@ def test_get_email(client: Client) -> None:
 
 
 def test_get_nicht_vorhandener_nachname(client: Client) -> None:
-    """Für einen nicht vorhandenen Nachnamen wird HTTP 404 geliefert."""
+    """Für einen nicht vorhandenen Nachnamen wird 404 mit ProblemDetails geliefert."""
     response = client.get("/rest", params={"nachname": "xyz"})
 
     assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json()["title"] == "Not Found"
