@@ -1,5 +1,5 @@
 info:
-  name: Nicht-vorhandene ID 999
+  name: Nicht-vorhandene ID 999999
   type: http
   seq: 3
 
@@ -11,7 +11,7 @@ http:
       value: application/json
   params:
     - name: id
-      value: "999"
+      value: "999999"
       type: path
   auth: inherit
 

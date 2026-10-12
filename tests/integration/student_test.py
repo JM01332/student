@@ -2,6 +2,7 @@
 
 from http import HTTPStatus
 
+import pytest
 lazy from httpx import Client
 
 
@@ -13,9 +14,11 @@ def test_get_by_id(client: Client) -> None:
     assert response.json()["nachname"] == "Mustermann"
 
 
-def test_get_by_id_not_found(client: Client) -> None:
+# Derselbe Test läuft einmal pro Wert: 0 als Grenzfall, 999999 als hohe ID
+@pytest.mark.parametrize("student_id", [0, 999999])
+def test_get_by_id_not_found(client: Client, student_id: int) -> None:
     """Für eine nicht vorhandene ID wird HTTP 404 mit ProblemDetails geliefert."""
-    response = client.get("/rest/999")
+    response = client.get(f"/rest/{student_id}")
 
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.headers["content-type"] == "application/problem+json"

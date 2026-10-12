@@ -24,7 +24,7 @@ def test_security_header(client: Client) -> None:
 
 def test_security_header_bei_fehler(client: Client) -> None:
     """Auch Fehler-Responses wie 404 enthalten die Security-Header."""
-    response = client.get("/rest/999")
+    response = client.get("/rest/999999")
 
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.headers["x-content-type-options"] == "nosniff"

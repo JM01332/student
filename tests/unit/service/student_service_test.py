@@ -10,7 +10,7 @@ from student.entity import Adresse, Pruefungsleistung, Student
 from student.repository import StudentRepository
 from student.service import NotFoundError, StudentService
 
-NICHT_VORHANDENE_ID = 999
+NICHT_VORHANDENE_ID = 999999
 """ID, zu der das Repository-Mock nichts findet."""
 
 
