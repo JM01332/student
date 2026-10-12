@@ -10,13 +10,20 @@ Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
 - `GET /rest/{id}`: ein Studierender anhand der ID
 - `GET /rest?nachname=...&email=...`: Suche (Teil des Nachnamens bzw. Emailadresse,
   jeweils ohne Groß-/Kleinschreibung); ohne Parameter alle Studierenden
+- `GET /health/liveness` und `GET /health/readiness`: Server bzw. Server und
+  Datenbank bereit
 - `GET /hello/`: Demo-Endpunkt
 
+Wird nichts gefunden, antwortet der Server mit 404 im Format ProblemDetails
+(`application/problem+json`, z.B. `{"title": "Not Found", "status_code": 404, ...}`).
+
 Aufbau: Router → Service → Repository mit Dependency Injection, Entities für
-SQLAlchemy und DTOs als Rückgabe des Service. Der Server läuft über HTTPS mit einem
+SQLAlchemy, DTOs als Rückgabe des Service und Pydantic-Response-Models im Router.
+Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
+`fastapi_app.py` macht daraus die HTTP-Antwort. Der Server läuft über HTTPS mit einem
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
-Geplant: Schreiben (POST, PUT, DELETE), Validierung mit Pydantic, GraphQL, Keycloak
-und Docker.
+Geplant: ETag, Schreiben (POST, PUT, DELETE), Validierung von Requests mit Pydantic,
+GraphQL, Keycloak und Docker.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
 
@@ -99,7 +106,8 @@ Start mit `tomllib` eingelesen:
 - `[logger]`: `debug-level` für DEBUG-Ausgaben in Konsole und `log/app.log`
 - `[db]`: Zugangsdaten für PostgreSQL (`host = "localhost"` für die App auf dem
   Host-Rechner), `password-admin` für den Superuser beim Neuladen,
-  `log-statements` zum Protokollieren der SQL-Anweisungen
+  `log-statements` zum Protokollieren der SQL-Anweisungen, `connect-timeout`
+  (Standard 2 Sekunden) als maximale Wartezeit beim Verbindungsaufbau
 - `[dev]`: `db-populate` lädt die Datenbank beim Start neu
 
 Auskommentierte Einträge verwenden den Standardwert. Das Paket `student.config`
@@ -131,7 +139,8 @@ FastAPI-Beispiel). In Bruno (`C:\Zimmermann\Bruno\Bruno.exe`) über
 selbstsigniert ist, unter *Preferences > General* die Option
 *SSL/TLS Certificate Verification* deaktivieren.
 
-Jeder Request enthält Assertions (Statuscode, Header, Body). Mit dem Server im
+Die Collection hat die Ordner *Hello*, *Health* und *REST*; jeder Request enthält
+Assertions (Statuscode, Header, Body). Mit dem Server im
 Hintergrund (`uv run student`) lassen sich alle Requests über *Run* auf der
 Collection auf einmal ausführen. Die Variable `baseUrl` steht in
 `opencollection.yml`.
