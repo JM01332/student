@@ -30,6 +30,8 @@ _password_admin: Final[str] = _db_toml.get("password-admin", "Change Me!")
 db_log_statements: Final[bool] = bool(_db_toml.get("log-statements", False))
 """True, falls die SQL-Anweisungen protokolliert werden sollen."""
 
+_connect_timeout: Final[int] = _db_toml.get("connect-timeout", 2)
+
 db_url: Final[URL] = URL.create(
     drivername="postgresql+psycopg",
     username=_username,
@@ -52,6 +54,9 @@ db_url_admin: Final[URL] = URL.create(
 db_connect_args: Final[dict[str, str]] = {
     "sslmode": "verify-full",
     "sslrootcert": str(resources_path / db_dialect / "server.crt"),
+    # max. Wartezeit in Sekunden je Verbindungsversuch, sonst wartet psycopg
+    # unbegrenzt, z.B. wenn der DB-Container gestoppt ist
+    "connect_timeout": str(_connect_timeout),
 }
-"""Verbindungsparameter für TLS bei PostgreSQL."""
+"""Verbindungsparameter für TLS und Timeout bei PostgreSQL."""
 logger.debug("db: db_connect_args={}", db_connect_args)

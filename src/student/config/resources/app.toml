@@ -24,6 +24,8 @@ password-admin = "p"
 host = "localhost"
 # SQL-Anweisungen von SQLAlchemy protokollieren
 log-statements = true
+# max. Wartezeit in Sekunden beim Verbindungsaufbau (Standard 2)
+# connect-timeout = 2
 
 [dev]
 # DB beim Start mit drop.sql, create.sql und den CSV-Testdaten neu laden
