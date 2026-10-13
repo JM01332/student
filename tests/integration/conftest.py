@@ -9,7 +9,7 @@ import pytest
 from httpx import Client, ConnectError, TimeoutException
 
 BASE_URL: Final = "https://127.0.0.1:8000"
-"""URL des laufenden Servers, gestartet mit `uv run student`."""
+"""URL des laufenden Servers, gestartet mit `uv run python -m student`."""
 
 TIMEOUT: Final = 5.0
 """Timeout in Sekunden für jeden Request."""
@@ -39,8 +39,9 @@ def client() -> Iterator[Client]:
             readiness = client.get("/health/readiness").json()
         except ConnectError:
             pytest.exit(
-                f"Server unter {BASE_URL} nicht erreichbar: zuerst `uv run student`"
-                " starten (und PostgreSQL), dann die Integrationstests ausführen.",
+                f"Server unter {BASE_URL} nicht erreichbar: zuerst"
+                " `uv run python -m student` starten (und PostgreSQL), dann die"
+                " Integrationstests ausführen.",
                 returncode=1,
             )
         except TimeoutException:

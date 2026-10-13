@@ -37,26 +37,23 @@ python --version
 uv --version
 ```
 
-Python 3.15 ist derzeit nur als Release Candidate verfügbar. uv lädt Vorabversionen
-nicht automatisch herunter, deshalb einmalig:
+Python 3.15 unter Windows von <https://www.python.org/downloads/windows/> mit dem
+**„Windows installer (64-bit)“** installieren, wie im FastAPI-Beispiel empfohlen.
+Diese Builds sind digital signiert. Ist **Smart App Control** aktiv, blockiert Windows
+dagegen das unsignierte Python, das `uv python install` herunterlädt („Eine
+Anwendungssteuerungsrichtlinie hat diese Datei blockiert“).
+
+Im Projektverzeichnis die virtuelle Umgebung mit diesem Python anlegen und alle
+Abhängigkeiten einrichten:
 
 ```powershell
-uv python install 3.15
-```
-
-Im Projektverzeichnis die virtuelle Umgebung und alle Abhängigkeiten einrichten:
-
-```powershell
+uv venv --python "$env:LOCALAPPDATA\Programs\Python\Python315\python.exe"
 uv sync --all-groups
 ```
 
 Das Paket wird dabei aus `src/student/` installiert. Zur Laufzeit werden FastAPI,
 Uvicorn, loguru, SQLAlchemy und psycopg benötigt, für Tests und Hilfsskripte
 pytest, pytest-mock, httpx und python-dotenv sowie Ruff und ty für die Codeprüfung. `uv.lock` hält die aufgelösten Versionen fest.
-
-Für Python 3.15 gibt es noch kein fertiges Wheel von `pydantic-core`. uv baut das
-Paket deshalb beim ersten `uv sync` mit Rust aus dem Quellcode; das dauert einige
-Minuten. Voraussetzung ist eine Rust-Installation (`cargo --version`).
 
 Für OWASP Dependency Check wird eine lokale `.env` benötigt (siehe
 [Sicherheits- und Codeanalyse](#sicherheits--und-codeanalyse)):
@@ -67,12 +64,16 @@ Copy-Item .env.example .env
 
 ## Server starten
 
-Vorher muss PostgreSQL laufen (siehe [PostgreSQL](#postgresql)). Der Eintrag
-`student = "student:main"` in `pyproject.toml` startet Uvicorn:
+Vorher muss PostgreSQL laufen (siehe [PostgreSQL](#postgresql)). Gestartet wird
+Uvicorn über `src/student/__main__.py`:
 
 ```powershell
-uv run student
+uv run python -m student
 ```
+
+Alternativ startet `uv run student` (Eintrag `student = "student:main"` in
+`pyproject.toml`) dasselbe. Unter Windows mit Smart App Control wird die dafür von uv
+erzeugte `student.exe` allerdings blockiert.
 
 Im Dev-Modus (`[dev] db-populate = true` in `app.toml`) wird die Datenbank bei jedem
 Start mit `drop.sql`, `create.sql` und den CSV-Testdaten neu geladen; im Log
@@ -141,7 +142,7 @@ selbstsigniert ist, unter *Preferences > General* die Option
 
 Die Collection hat die Ordner *Hello*, *Health* und *REST*; jeder Request enthält
 Assertions (Statuscode, Header, Body). Mit dem Server im
-Hintergrund (`uv run student`) lassen sich alle Requests über *Run* auf der
+Hintergrund (`uv run python -m student`) lassen sich alle Requests über *Run* auf der
 Collection auf einmal ausführen. Die Variable `baseUrl` steht in
 `opencollection.yml`.
 
@@ -153,7 +154,7 @@ Es gibt zwei Arten von Tests, wie im FastAPI-Beispiel:
   in der CI.
 - **Integrationstests** (`tests/integration`) schicken mit httpx echte
   HTTPS-Requests an den laufenden Server. Vorher PostgreSQL und den Server
-  (`uv run student`) starten; sonst bricht der Testlauf mit einem Hinweis ab. Sie
+  (`uv run python -m student`) starten; sonst bricht der Testlauf mit einem Hinweis ab. Sie
   laufen nur lokal.
 
 ```powershell
@@ -166,8 +167,10 @@ uv run ty check src tests
 
 Meldet Windows bei `uv run pytest` „Eine Anwendungssteuerungsrichtlinie hat diese
 Datei blockiert“, blockiert die Anwendungssteuerung (z.B. Smart App Control) die
-lokal erzeugte `pytest.exe`. Gleichwertig ist dann der Aufruf über den
-Python-Interpreter, z.B. `uv run python -m pytest tests/unit`.
+lokal erzeugte, unsignierte `pytest.exe`. Gleichwertig ist dann der Aufruf über den
+Python-Interpreter, z.B. `uv run python -m pytest tests/unit`. Wird auch `python`
+selbst blockiert, wurde die `.venv` mit einem unsignierten Python angelegt; dann wie
+unter [Einrichtung](#einrichtung) beschrieben mit Python von python.org neu anlegen.
 
 Ruff verwendet das Regelset aus dem FastAPI-Beispiel (`[tool.ruff.lint]` in
 `pyproject.toml`), unter anderem mit Regeln für Sicherheit, Docstrings und
