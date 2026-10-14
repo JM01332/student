@@ -295,7 +295,7 @@ Versionswert in doppelten Anführungszeichen. ETag-Listen, `*` und schwache ETag
 
 **Offen, in dieser Reihenfolge:**
 
-1. Zählabfrage und Seitenmetadaten für Pagination ergänzen.
+1. Zählabfrage an den Service anbinden und Seitenmetadaten für Pagination ergänzen.
 2. POST mit Validierung.
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
@@ -315,3 +315,8 @@ Erlaubt sind `page >= 0` und `0 <= size <= 100`; `size=0` liefert unabhängig
 von `page` alle Treffer. Beide Suchfilter lassen sich mit Pagination kombinieren.
 Ungültige Werte führen zu HTTP 422, eine leere Seite zu HTTP 404 mit ProblemDetails.
 Gesamtanzahl und Seitenmetadaten sind noch nicht Bestandteil der Antwort.
+
+`StudentRepository.count` ermittelt bereits die Gesamtanzahl mit denselben
+optionalen Suchfiltern wie `find`, einschließlich kombinierter Filter. Die
+SQL-Zählabfrage zählt Studierende ohne Joins und unabhängig von der Pagination;
+ohne Treffer liefert sie 0. Die Anbindung an Service und REST folgt separat.

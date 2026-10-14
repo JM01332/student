@@ -75,3 +75,27 @@ class StudentRepository:
         studenten: Final = session.scalars(statement).all()
         logger.debug("{}", studenten)
         return studenten
+
+    def count(
+        self,
+        nachname: str | None,
+        email: str | None,
+        session: Session,
+    ) -> int:
+        """Zähle alle Treffer der Suche unabhängig von der Seiteneinteilung.
+
+        :param nachname: Teil des Nachnamens, ohne Groß-/Kleinschreibung
+        :param email: Emailadresse, ohne Groß-/Kleinschreibung
+        :param session: Session für SQLAlchemy
+        :return: Gesamtanzahl der passenden Studierenden, ggf. 0
+        :rtype: int
+        """
+        logger.debug("nachname={}, email={}", nachname, email)
+        statement = select(func.count()).select_from(Student)
+        if nachname is not None:
+            statement = statement.where(Student.nachname.ilike(f"%{nachname}%"))
+        if email is not None:
+            statement = statement.where(func.lower(Student.email) == email.lower())
+        count: Final = session.scalar(statement)
+        logger.debug("count={}", count)
+        return count if count is not None else 0
