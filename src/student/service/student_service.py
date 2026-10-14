@@ -8,6 +8,7 @@ from student.repository import Session
 from student.service.exceptions import NotFoundError
 from student.service.student_dto import StudentDTO
 lazy from student.repository import StudentRepository
+lazy from student.repository.pageable import Pageable
 
 __all__ = ["StudentService"]
 
@@ -44,20 +45,27 @@ class StudentService:
         logger.debug("{}", student_dto)
         return student_dto
 
-    def find(self, nachname: str | None, email: str | None) -> list[StudentDTO]:
+    def find(
+        self,
+        nachname: str | None,
+        email: str | None,
+        pageable: Pageable | None = None,
+    ) -> list[StudentDTO]:
         """Studierende mit optionalen Suchparametern suchen.
 
         :param nachname: Teil des Nachnamens
         :param email: Emailadresse
+        :param pageable: Validierte Seiteneinteilung; None oder size=0 für alle Treffer
         :return: Liste der gefundenen Studierenden
         :rtype: list[StudentDTO]
         :raises NotFoundError: Falls keine Studierenden gefunden wurden
         """
-        logger.debug("nachname={}, email={}", nachname, email)
+        logger.debug("nachname={}, email={}, pageable={}", nachname, email, pageable)
         with Session() as session:
             studenten: Final = self.repo.find(
                 nachname=nachname,
                 email=email,
+                pageable=pageable,
                 session=session,
             )
             if not studenten:

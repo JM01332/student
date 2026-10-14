@@ -8,6 +8,7 @@ lazy from pytest_mock import MockerFixture
 
 from student.entity import Adresse, Pruefungsleistung, Student
 from student.repository import StudentRepository
+from student.repository.pageable import Pageable
 from student.service import NotFoundError, StudentService
 
 NICHT_VORHANDENE_ID = 999999
@@ -133,20 +134,50 @@ def test_find(
     repo_mock.find.assert_called_once_with(
         nachname="mock",
         email=None,
+        pageable=None,
         session=session_mock,
     )
     session_mock.commit.assert_called_once()
 
 
+@pytest.mark.parametrize("size", [2, 0])
+def test_find_mit_pagination(
+    service: StudentService,
+    repo_mock: Mock,
+    session_mock: Mock,
+    size: int,
+) -> None:
+    """Seiteneinteilung und beide Filter werden bei der DTO-Suche weitergegeben."""
+    pageable = Pageable(number=1, size=size)
+    repo_mock.find.return_value = [_student_entity()]
+
+    studenten = service.find(nachname="mock", email="mock@h-ka.de", pageable=pageable)
+
+    assert [student.nachname for student in studenten] == ["Mocktest"]
+    repo_mock.find.assert_called_once_with(
+        nachname="mock",
+        email="mock@h-ka.de",
+        pageable=pageable,
+        session=session_mock,
+    )
+    session_mock.commit.assert_called_once()
+
+
+@pytest.mark.parametrize("pageable", [None, Pageable(number=1, size=2)])
 def test_find_ohne_treffer(
     service: StudentService,
     repo_mock: Mock,
-    session_mock: Mock,  # ruff: ignore[unused-function-argument] - Fixture ersetzt nur die echte Session
+    session_mock: Mock,
+    pageable: Pageable | None,
 ) -> None:
     """Die Suche wirft NotFoundError, wenn das Repository nichts findet."""
     repo_mock.find.return_value = []
 
     with pytest.raises(NotFoundError) as err:
-        service.find(nachname="xyz", email=None)
+        service.find(nachname="xyz", email=None, pageable=pageable)
 
     assert err.value.nachname == "xyz"
+    repo_mock.find.assert_called_once_with(
+        nachname="xyz", email=None, pageable=pageable, session=session_mock
+    )
+    session_mock.commit.assert_not_called()

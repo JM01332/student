@@ -295,7 +295,7 @@ Versionswert in doppelten Anführungszeichen. ETag-Listen, `*` und schwache ETag
 
 **Offen, in dieser Reihenfolge:**
 
-1. Pagination an Service und REST anbinden, einschließlich Seitenmetadaten.
+1. Pagination an REST anbinden und Seitenmetadaten ergänzen.
 2. POST mit Validierung.
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
@@ -304,4 +304,7 @@ Prüfungsleistungen (siehe `src/student/entity`).
 Das Repository unterstützt bereits optionale Pagination, z.B. mit
 `Pageable(number=0, size=2)`: Seiten beginnen bei 0; `size=0` oder kein `Pageable` liefert
 alle Treffer. Die Abfrage sortiert nach ID und begrenzt die Treffer mit SQL-`LIMIT`
-und `OFFSET`. Die REST-Suche liefert bislang weiterhin alle Treffer.
+und `OFFSET`. `StudentService.find` nimmt ebenfalls optional `Pageable` entgegen
+und gibt es an das Repository weiter. Der Service liefert weiterhin eine Liste
+von DTOs und wirft bei einem leeren Ergebnis `NotFoundError`, auch bei einer
+leeren Seite. Die REST-Suche liefert bislang weiterhin alle Treffer.
