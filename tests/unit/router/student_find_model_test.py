@@ -54,6 +54,31 @@ def test_find_model_defaults() -> None:
 
     assert model.nachname is None
     assert model.email is None
+    pageable = model.to_pageable()
+    assert pageable.number == 0
+    expected_size = 5
+    assert pageable.size == expected_size
+
+
+@pytest.mark.parametrize(
+    ("parameter", "value", "error_type"),
+    [
+        ("page", "-1", "greater_than_equal"),
+        ("size", "-1", "greater_than_equal"),
+        ("size", "101", "less_than_equal"),
+        ("page", "abc", "int_parsing"),
+        ("size", "1.5", "int_parsing"),
+    ],
+)
+def test_find_model_rejects_invalid_pagination(
+    parameter: str, value: str, error_type: str
+) -> None:
+    """Ungültige Seitenparameter werden vor dem Service-Aufruf abgewiesen."""
+    with pytest.raises(ValidationError) as exc:
+        StudentFindModel.model_validate({parameter: value})
+
+    assert exc.value.errors()[0]["loc"] == (parameter,)
+    assert exc.value.errors()[0]["type"] == error_type
 
 
 def test_find_model_rejects_unknown_parameter() -> None:

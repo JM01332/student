@@ -284,7 +284,7 @@ und PostgreSQL einschließlich Fetch-Join, Neuladen der DB im Dev-Modus, Bruno,
 Unit-Tests mit Mocks, Integrationstests mit pytest und httpx sowie CI, Health-Router
 und Fehlerbehandlung mit `NotFoundError` und ProblemDetails, Pydantic-Response-Models
 sowie ETag und `If-None-Match` für GET nach ID und ein Pydantic-Modell für
-die Suchparameter `nachname` und `email`.
+die Suchparameter `nachname` und `email` sowie REST-Pagination mit `page` und `size`.
 
 `GET /rest/{id}` liefert die Version als ETag (z.B. `"0"`). Bei einem passenden
 `If-None-Match: "0"` antwortet der Server mit 304 ohne Body und mit ETag.
@@ -295,7 +295,7 @@ Versionswert in doppelten Anführungszeichen. ETag-Listen, `*` und schwache ETag
 
 **Offen, in dieser Reihenfolge:**
 
-1. Pagination an REST anbinden und Seitenmetadaten ergänzen.
+1. Zählabfrage und Seitenmetadaten für Pagination ergänzen.
 2. POST mit Validierung.
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
@@ -307,4 +307,11 @@ alle Treffer. Die Abfrage sortiert nach ID und begrenzt die Treffer mit SQL-`LIM
 und `OFFSET`. `StudentService.find` nimmt ebenfalls optional `Pageable` entgegen
 und gibt es an das Repository weiter. Der Service liefert weiterhin eine Liste
 von DTOs und wirft bei einem leeren Ergebnis `NotFoundError`, auch bei einer
-leeren Seite. Die REST-Suche liefert bislang weiterhin alle Treffer.
+leeren Seite.
+
+`GET /rest?page=1&size=2` liefert die zweite Seite mit höchstens zwei Treffern
+als JSON-Liste. Ohne Seitenparameter gelten `page=0` und `size=5` wie im Beispiel.
+Erlaubt sind `page >= 0` und `0 <= size <= 100`; `size=0` liefert unabhängig
+von `page` alle Treffer. Beide Suchfilter lassen sich mit Pagination kombinieren.
+Ungültige Werte führen zu HTTP 422, eine leere Seite zu HTTP 404 mit ProblemDetails.
+Gesamtanzahl und Seitenmetadaten sind noch nicht Bestandteil der Antwort.

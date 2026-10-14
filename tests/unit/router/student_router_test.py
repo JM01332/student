@@ -81,14 +81,22 @@ def test_get_missing_student_still_raises_not_found(service: Mock) -> None:
         ("Muster", "max@example.org"),
     ],
 )
+@pytest.mark.parametrize(("page", "size"), [(0, 5), (1, 2), (3, 0), (0, 100)])
 def test_search_passes_filters_to_service(
-    service: Mock, nachname: str | None, email: str | None
+    service: Mock, nachname: str | None, email: str | None, page: int, size: int
 ) -> None:
     """Optionale Filter werden unverändert an den Service weitergereicht."""
     service.find.return_value = [service.find_by_id.return_value]
 
-    result = get(StudentFindModel(nachname=nachname, email=email), service)
+    result = get(
+        StudentFindModel(nachname=nachname, email=email, page=page, size=size), service
+    )
 
-    service.find.assert_called_once_with(nachname=nachname, email=email)
+    service.find.assert_called_once()
+    kwargs = service.find.call_args.kwargs
+    assert kwargs["nachname"] == nachname
+    assert kwargs["email"] == email
+    assert kwargs["pageable"].number == page
+    assert kwargs["pageable"].size == size
     assert [student.id for student in result] == [1]
     assert result[0].pruefungsleistungen[0].note == Decimal("1.3")

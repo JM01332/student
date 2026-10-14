@@ -48,7 +48,7 @@ def test_get_by_id_not_found(client: Client, student_id: int) -> None:
 
 
 def test_get_ohne_suchparameter(client: Client) -> None:
-    """Ohne Suchparameter werden alle Studierenden geliefert."""
+    """Ohne Suchparameter wird die erste Seite mit fünf Studierenden geliefert."""
     response = client.get("/rest")
 
     assert response.status_code == HTTPStatus.OK
@@ -115,3 +115,53 @@ def test_get_unbekannter_suchparameter(client: Client) -> None:
     error = response.json()["detail"][0]
     assert error["type"] == "extra_forbidden"
     assert error["loc"] == ["query", "nachnam"]
+
+
+@pytest.mark.parametrize(
+    ("page", "size", "expected_ids"),
+    [(0, 2, [1, 20]), (1, 2, [30, 40]), (2, 2, [50]), (3, 0, [1, 20, 30, 40, 50])],
+)
+def test_get_pagination(
+    client: Client, page: int, size: int, expected_ids: list[int]
+) -> None:
+    """Seiten sind nach ID sortiert; size=0 liefert unabhängig von page alle Treffer."""
+    response = client.get("/rest", params={"page": page, "size": size})
+
+    assert response.status_code == HTTPStatus.OK
+    assert [student["id"] for student in response.json()] == expected_ids
+
+
+def test_get_pagination_mit_filtern(client: Client) -> None:
+    """Beide Suchfilter bleiben zusammen mit Pagination wirksam."""
+    response = client.get(
+        "/rest",
+        params={
+            "nachname": "muster",
+            "email": "erika.musterfrau@h-ka.de",
+            "page": 0,
+            "size": 1,
+        },
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert [student["vorname"] for student in response.json()] == ["Erika"]
+
+
+def test_get_leere_seite(client: Client) -> None:
+    """Eine Seite hinter dem letzten Treffer liefert 404 mit ProblemDetails."""
+    response = client.get("/rest", params={"page": 3, "size": 2})
+
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    assert response.headers["content-type"] == "application/problem+json"
+
+
+@pytest.mark.parametrize(
+    ("parameter", "value"),
+    [("page", "-1"), ("size", "-1"), ("size", "101"), ("page", "abc"), ("size", "1.5")],
+)
+def test_get_ungueltige_pagination(client: Client, parameter: str, value: str) -> None:
+    """Ungültige Query-Werte werden mit HTTP 422 abgewiesen."""
+    response = client.get("/rest", params={parameter: value})
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    assert response.json()["detail"][0]["loc"] == ["query", parameter]

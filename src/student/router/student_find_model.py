@@ -1,9 +1,16 @@
 """Pydantic-Modelle für das Lesen von Studierendendaten."""
 
+from typing import Annotated
 lazy from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
+from student.repository.pageable import (
+    DEFAULT_PAGE_NUMBER,
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    Pageable,
+)
 lazy from student.service import StudentDTO
 
 __all__ = [
@@ -15,12 +22,18 @@ __all__ = [
 
 
 class StudentFindModel(BaseModel):
-    """Optionale Query-Parameter für die Suche nach Studierenden."""
+    """Suchparameter und Pagination für die Suche nach Studierenden."""
 
     nachname: str | None = None
     email: str | None = None
+    page: Annotated[int, Field(ge=DEFAULT_PAGE_NUMBER)] = DEFAULT_PAGE_NUMBER
+    size: Annotated[int, Field(ge=0, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE
 
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+    def to_pageable(self) -> Pageable:
+        """Erzeugt die Pagination-Daten aus den validierten Parametern."""
+        return Pageable(number=self.page, size=self.size)
 
 
 class AdresseResponseModel(BaseModel):

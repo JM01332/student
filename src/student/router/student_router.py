@@ -65,13 +65,15 @@ def get(
     """Suche mit Query-Parametern.
 
     :param service: Injizierter Service für Geschäftslogik
-    :param find_model: Validierte Query-Parameter für Nachname und Emailadresse
+    :param find_model: Validierte Suchfilter und Pagination-Parameter
     :return: Liste der gefundenen Studierenden als Response-Modelle
     :rtype: list[StudentResponseModel]
     :raises NotFoundError: Falls nichts gefunden wurde, als 404 durch den Handler
     """
     logger.debug("search={}", find_model)
     studenten: Final = service.find(
-        nachname=find_model.nachname, email=find_model.email
+        nachname=find_model.nachname,
+        email=find_model.email,
+        pageable=find_model.to_pageable(),
     )
     return [StudentResponseModel.from_dto(student) for student in studenten]
