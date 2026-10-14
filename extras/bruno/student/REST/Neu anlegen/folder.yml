@@ -1,0 +1,11 @@
+info:
+  name: Neu anlegen
+  type: folder
+  seq: 3
+
+request:
+  auth: inherit
+
+docs:
+  content: Neue Studierende per POST anlegen. "Neuer Student" klappt nach jedem Serverstart einmal, weil die DB dann neu geladen wird.
+  type: text/markdown

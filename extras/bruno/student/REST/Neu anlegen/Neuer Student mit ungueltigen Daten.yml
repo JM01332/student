@@ -1,0 +1,48 @@
+info:
+  name: Neuer Student mit ungueltigen Daten
+  type: http
+  seq: 2
+
+http:
+  method: POST
+  url: "{{restUrl}}"
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+          "matrikelnummer": "12",
+          "nachname": "rest",
+          "vorname": "Rita",
+          "email": "keine-email",
+          "username": "rita",
+          "adresse": {
+              "plz": "7613",
+              "ort": "Karlsruhe"
+          },
+          "pruefungsleistungen": [
+              {
+                  "modul": "Softwareengineering",
+                  "note": 1.5,
+                  "semester": "WS 2026/27"
+              }
+          ]
+      }
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "422"
+    - expression: res.body.detail
+      operator: length
+      value: "5"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
