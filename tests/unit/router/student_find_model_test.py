@@ -5,7 +5,12 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from student.router.student_find_model import StudentFindModel, StudentResponseModel
+from student.router.student_find_model import (
+    PageMetaModel,
+    StudentFindModel,
+    StudentPageModel,
+    StudentResponseModel,
+)
 from student.service import AdresseDTO, PruefungsleistungDTO, StudentDTO
 
 
@@ -99,3 +104,46 @@ def test_find_model_is_frozen() -> None:
         model.nachname = "Anders"  # ty: ignore[invalid-assignment]
 
     assert exc.value.errors()[0]["type"] == "frozen_instance"
+
+
+def test_page_model_serialization() -> None:
+    """Eine Seite serialisiert Inhalt und Metadaten im vorgesehenen JSON-Format."""
+    student = StudentResponseModel.from_dto(_student_dto())
+    page = StudentPageModel(
+        content=(student,),
+        page=PageMetaModel(size=2, number=1, total_elements=3, total_pages=2),
+    )
+
+    result = page.model_dump(mode="json")
+
+    assert result == {
+        "content": [student.model_dump(mode="json")],
+        "page": {"size": 2, "number": 1, "total_elements": 3, "total_pages": 2},
+    }
+    assert "version" not in result["content"][0]
+    assert result["content"][0]["pruefungsleistungen"][0]["note"] == "1.3"
+
+
+def test_page_model_empty_content() -> None:
+    """Das Antwortmodell kann auch eine leere Seite darstellen."""
+    page = StudentPageModel(
+        content=(),
+        page=PageMetaModel(size=5, number=0, total_elements=0, total_pages=0),
+    )
+
+    assert page.model_dump(mode="json") == {
+        "content": [],
+        "page": {"size": 5, "number": 0, "total_elements": 0, "total_pages": 0},
+    }
+
+
+def test_page_model_requires_complete_metadata() -> None:
+    """Unvollständige Metadaten dürfen nicht als Seitenantwort ausgegeben werden."""
+    with pytest.raises(ValidationError) as exc:
+        StudentPageModel.model_validate({"content": [], "page": {"size": 5}})
+
+    assert {error["loc"] for error in exc.value.errors()} == {
+        ("page", "number"),
+        ("page", "total_elements"),
+        ("page", "total_pages"),
+    }

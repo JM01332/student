@@ -15,8 +15,10 @@ lazy from student.service import StudentDTO
 
 __all__ = [
     "AdresseResponseModel",
+    "PageMetaModel",
     "PruefungsleistungResponseModel",
     "StudentFindModel",
+    "StudentPageModel",
     "StudentResponseModel",
 ]
 
@@ -89,3 +91,19 @@ class StudentResponseModel(BaseModel):
         :rtype: StudentResponseModel
         """
         return cls.model_validate(student)
+
+
+class PageMetaModel(BaseModel):
+    """Metadaten einer Ergebnisseite mit nullbasierter Seitennummer."""
+
+    size: int
+    number: int
+    total_elements: int
+    total_pages: int
+
+
+class StudentPageModel(BaseModel):
+    """Pydantic-Modell für Suchergebnisse mit Seitenmetadaten."""
+
+    content: tuple[StudentResponseModel, ...]
+    page: PageMetaModel
