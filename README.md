@@ -295,7 +295,7 @@ Versionswert in doppelten Anführungszeichen. ETag-Listen, `*` und schwache ETag
 
 **Offen, in dieser Reihenfolge:**
 
-1. Zählabfrage an den Service anbinden und Seitenmetadaten für Pagination ergänzen.
+1. Seitenmetadaten für Pagination ergänzen und an REST anbinden.
 2. POST mit Validierung.
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
@@ -319,4 +319,6 @@ Gesamtanzahl und Seitenmetadaten sind noch nicht Bestandteil der Antwort.
 `StudentRepository.count` ermittelt bereits die Gesamtanzahl mit denselben
 optionalen Suchfiltern wie `find`, einschließlich kombinierter Filter. Die
 SQL-Zählabfrage zählt Studierende ohne Joins und unabhängig von der Pagination;
-ohne Treffer liefert sie 0. Die Anbindung an Service und REST folgt separat.
+ohne Treffer liefert sie 0. `StudentService.count(nachname, email)` stellt diese
+Zählung mit eigener Session-Verwaltung bereit und liefert ebenfalls 0 ohne
+`NotFoundError`. Die Anbindung der Gesamtanzahl an die REST-Antwort folgt separat.

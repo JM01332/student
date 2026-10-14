@@ -78,3 +78,23 @@ class StudentService:
 
         logger.debug("{}", studenten_dto)
         return studenten_dto
+
+    def count(self, nachname: str | None, email: str | None) -> int:
+        """Alle Treffer mit optionalen Suchparametern zählen.
+
+        :param nachname: Teil des Nachnamens
+        :param email: Emailadresse
+        :return: Gesamtanzahl der passenden Studierenden, ggf. 0
+        :rtype: int
+        """
+        logger.debug("nachname={}, email={}", nachname, email)
+        with Session() as session:
+            count: Final = self.repo.count(
+                nachname=nachname,
+                email=email,
+                session=session,
+            )
+            session.commit()
+
+        logger.debug("count={}", count)
+        return count

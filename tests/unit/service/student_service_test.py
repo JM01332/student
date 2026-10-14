@@ -120,6 +120,38 @@ def test_find_by_id_nicht_vorhanden(
     session_mock.commit.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    ("nachname", "email", "anzahl"),
+    [
+        (None, None, 5),
+        ("mock", None, 2),
+        (None, "mock@h-ka.de", 1),
+        ("mock", "mock@h-ka.de", 1),
+        ("xyz", None, 0),
+    ],
+)
+def test_count(
+    repo_mock: Mock,
+    session_mock: Mock,
+    nachname: str | None,
+    email: str | None,
+    anzahl: int,
+) -> None:
+    """Die Zählung reicht Filter weiter und liefert auch 0 ohne NotFoundError."""
+    service = StudentService(repo=repo_mock)
+    repo_mock.count.return_value = anzahl
+
+    result = service.count(nachname=nachname, email=email)
+
+    assert result == anzahl
+    repo_mock.count.assert_called_once_with(
+        nachname=nachname,
+        email=email,
+        session=session_mock,
+    )
+    session_mock.commit.assert_called_once()
+
+
 def test_find(
     service: StudentService,
     repo_mock: Mock,
