@@ -5,9 +5,9 @@ from typing import Annotated
 from fastapi import Depends
 
 from student.repository import StudentRepository
-from student.service import StudentService
+from student.service import StudentService, StudentWriteService
 
-__all__ = ["get_repository", "get_service"]
+__all__ = ["get_repository", "get_service", "get_write_service"]
 
 
 def get_repository() -> StudentRepository:
@@ -29,3 +29,15 @@ def get_service(
     :rtype: StudentService
     """
     return StudentService(repo=repo)
+
+
+def get_write_service(
+    repo: Annotated[StudentRepository, Depends(get_repository)],
+) -> StudentWriteService:
+    """Factory-Funktion für StudentWriteService.
+
+    :param repo: Injiziertes Repository
+    :return: Der Service zum Schreiben
+    :rtype: StudentWriteService
+    """
+    return StudentWriteService(repo=repo)

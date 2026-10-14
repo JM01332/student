@@ -10,12 +10,21 @@ from fastapi.middleware.gzip import GZipMiddleware
 from loguru import logger
 
 from student.config import dev_db_populate
-from student.config.dev import db_populate
+from student.config.dev import db_populate, db_populate_router
 from student.problem_details import ProblemDetails
 from student.repository import engine
-from student.router import health_router, hello_router, student_router
+from student.router import (
+    health_router,
+    hello_router,
+    student_router,
+    student_write_router,
+)
 from student.security import set_response_headers
-from student.service import NotFoundError
+from student.service import (
+    EmailExistsError,
+    MatrikelnummerExistsError,
+    NotFoundError,
+)
 
 
 @asynccontextmanager
@@ -83,6 +92,11 @@ async def log_response_time(
 app.include_router(health_router, prefix="/health")
 app.include_router(hello_router, prefix="/hello")
 app.include_router(student_router, prefix="/rest")
+app.include_router(student_write_router, prefix="/rest")
+
+# Neuladen der DB per REST nur im Dev-Modus, wie im Beispielprojekt
+if dev_db_populate:
+    app.include_router(db_populate_router, prefix="/dev")
 
 
 @app.middleware("http")
@@ -113,3 +127,36 @@ def not_found_error_handler(_request: Request, err: NotFoundError) -> Response:
     """
     logger.debug("NotFoundError: {}", vars(err))
     return ProblemDetails.create(status_code=status.HTTP_404_NOT_FOUND).to_response()
+
+
+@app.exception_handler(EmailExistsError)
+def email_exists_error_handler(_request: Request, err: EmailExistsError) -> Response:
+    """Errorhandler für EmailExistsError beim Anlegen.
+
+    :param _request: Request-Objekt (hier nicht benötigt)
+    :param err: Exception, falls die Emailadresse bereits existiert
+    :return: Response mit Statuscode 422 und ProblemDetails
+    :rtype: Response
+    """
+    return ProblemDetails.create(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail=str(err),
+    ).to_response()
+
+
+@app.exception_handler(MatrikelnummerExistsError)
+def matrikelnummer_exists_error_handler(
+    _request: Request,
+    err: MatrikelnummerExistsError,
+) -> Response:
+    """Errorhandler für MatrikelnummerExistsError beim Anlegen.
+
+    :param _request: Request-Objekt (hier nicht benötigt)
+    :param err: Exception, falls die Matrikelnummer bereits existiert
+    :return: Response mit Statuscode 422 und ProblemDetails
+    :rtype: Response
+    """
+    return ProblemDetails.create(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail=str(err),
+    ).to_response()
