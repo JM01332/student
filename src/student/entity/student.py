@@ -27,7 +27,7 @@ class Student(Base):
     vorname: Mapped[str]
     """Der Vorname."""
 
-    username: Mapped[str]
+    username: Mapped[str | None]
     """Der Benutzername für Login."""
 
     id: Mapped[int | None] = mapped_column(

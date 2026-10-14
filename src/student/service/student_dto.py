@@ -42,7 +42,7 @@ class StudentDTO:
             nachname=student.nachname,
             vorname=student.vorname,
             email=student.email,
-            username=student.username,
+            username=student.username if student.username is not None else "N/A",
             adresse=(
                 AdresseDTO.from_adresse(student.adresse)
                 if student.adresse is not None
