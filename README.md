@@ -12,8 +12,11 @@ Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
 - `GET /rest?nachname=...&email=...`: Suche (Teil des Nachnamens bzw. Emailadresse,
   jeweils ohne Groß-/Kleinschreibung), mit Seiteninhalt und Metadaten;
   ohne Parameter die erste Seite mit bis zu fünf Studierenden
+- `POST /rest`: neuen Studierenden mit Adresse und Prüfungsleistungen anlegen,
+  Antwort 201 mit `Location`-Header
 - `GET /health/liveness` und `GET /health/readiness`: Server bzw. Server und
   Datenbank bereit
+- `QUERY /dev/db_populate`: Datenbank mit den Testdaten neu laden (nur im Dev-Modus)
 - `GET /hello/`: Demo-Endpunkt
 
 Wird nichts gefunden, antwortet der Server mit 404 im Format ProblemDetails
@@ -26,8 +29,7 @@ SQLAlchemy, DTOs als Rückgabe des Service und Pydantic-Response-Models im Route
 Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
 `fastapi_app.py` macht daraus die HTTP-Antwort. Der Server läuft über HTTPS mit einem
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
-Geplant: Schreiben (POST, PUT, DELETE), Validierung von Requests mit Pydantic,
-GraphQL, Keycloak und Docker.
+Geplant: PUT, DELETE, GraphQL, Keycloak und Docker.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
 
@@ -144,7 +146,7 @@ FastAPI-Beispiel). In Bruno (`C:\Zimmermann\Bruno\Bruno.exe`) über
 selbstsigniert ist, unter *Preferences > General* die Option
 *SSL/TLS Certificate Verification* deaktivieren.
 
-Die Collection hat die Ordner *Hello*, *Health* und *REST*; jeder Request enthält
+Die Collection hat die Ordner *Dev*, *Hello*, *Health* und *REST*; jeder Request enthält
 Assertions (Statuscode, Header, Body). Mit dem Server im
 Hintergrund (`uv run python -m student`) lassen sich alle Requests über *Run* auf der
 Collection auf einmal ausführen. Die Variable `baseUrl` steht in
@@ -294,9 +296,22 @@ Die Header-Auswertung entspricht dem Beispiel: ein einzelner ganzzahliger
 Versionswert in doppelten Anführungszeichen. ETag-Listen, `*` und schwache ETags
 (`W/"0"`) werden in diesem Paket nicht ausgewertet.
 
-**Offen, in dieser Reihenfolge:**
+`POST /rest` legt neue Studierende an. Der Request-Body wird mit Pydantic
+validiert (`router/student_model.py`, `student_update_model.py`, `adresse_model.py`,
+`pruefungsleistung_model.py`): Matrikelnummer mit 6 Ziffern, Vor- und Nachname mit
+großem Anfangsbuchstaben (auch Doppelnamen wie „Müller-Lüdenscheidt“), gültige Email,
+PLZ mit 5 Ziffern, nur zulässige Notenstufen und Semester wie `WS 2026/27` oder
+`SS 2026`. Ungültige Daten liefern HTTP 422 mit den betroffenen Feldern, eine bereits
+vorhandene Email oder Matrikelnummer HTTP 422 mit ProblemDetails. Bei Erfolg antwortet
+der Server mit 201 ohne Body und dem `Location`-Header zum neuen Datensatz.
 
-1. POST mit Validierung, aufgeteilt in kleine, einzeln prüfbare Pakete.
+Im Dev-Modus lädt `QUERY /dev/db_populate` die Datenbank neu. Die Integrationstests
+rufen den Endpunkt vor jedem Testlauf auf, damit sie immer mit denselben Testdaten
+beginnen; in Bruno steht er als erster Request im Ordner *Dev*. Wie im Beispiel wird
+der Endpunkt später mit Keycloak auf die Rolle Admin beschränkt.
+
+**Offen, in dieser Reihenfolge:** PUT mit `If-Match`, DELETE, Keycloak, GraphQL,
+Docker sowie Dokumentation und Lasttests (siehe GitHub Project).
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
 Prüfungsleistungen (siehe `src/student/entity`).
