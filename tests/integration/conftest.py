@@ -1,6 +1,7 @@
 """Gemeinsame Fixtures für die Integrationstests gegen den laufenden Server."""
 
 import ssl
+from http import HTTPStatus
 from pathlib import Path
 from typing import Final
 lazy from collections.abc import Iterator
@@ -53,3 +54,17 @@ def client() -> Iterator[Client]:
                 returncode=1,
             )
         yield client
+
+
+@pytest.fixture(scope="session", autouse=True)
+def db_neu_laden(client: Client) -> None:
+    """DB vor den Integrationstests einmal mit den Testdaten neu laden.
+
+    `autouse=True`: Die Fixture läuft automatisch, ohne dass ein Test sie anfordert.
+    So beginnt jeder Testlauf mit denselben Daten, auch wenn ein vorheriger Lauf
+    z.B. per POST neue Studierende angelegt hat.
+    """
+    response = client.request("QUERY", "/dev/db_populate")
+    assert response.status_code == HTTPStatus.OK, (
+        "DB konnte nicht neu geladen werden: Ist `[dev] db-populate = true` gesetzt?"
+    )
