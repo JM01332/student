@@ -9,8 +9,18 @@ lazy from student.service import StudentDTO
 __all__ = [
     "AdresseResponseModel",
     "PruefungsleistungResponseModel",
+    "StudentFindModel",
     "StudentResponseModel",
 ]
+
+
+class StudentFindModel(BaseModel):
+    """Optionale Query-Parameter für die Suche nach Studierenden."""
+
+    nachname: str | None = None
+    email: str | None = None
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
 
 class AdresseResponseModel(BaseModel):

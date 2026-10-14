@@ -1,8 +1,11 @@
-"""Unit-Tests für die Umwandlung von StudentDTO in StudentResponseModel."""
+"""Unit-Tests für Suchparameter und die Umwandlung von StudentDTO."""
 
 from decimal import Decimal
 
-from student.router.student_find_model import StudentResponseModel
+import pytest
+from pydantic import ValidationError
+
+from student.router.student_find_model import StudentFindModel, StudentResponseModel
 from student.service import AdresseDTO, PruefungsleistungDTO, StudentDTO
 
 
@@ -43,3 +46,31 @@ def test_from_dto_ohne_version() -> None:
 
     assert "version" not in json
     assert json["pruefungsleistungen"][0]["note"] == "1.3"
+
+
+def test_find_model_defaults() -> None:
+    """Ohne Query-Parameter wird kein Filter gesetzt."""
+    model = StudentFindModel()
+
+    assert model.nachname is None
+    assert model.email is None
+
+
+def test_find_model_rejects_unknown_parameter() -> None:
+    """Tippfehler in Suchparametern werden nicht stillschweigend ignoriert."""
+    with pytest.raises(ValidationError) as exc:
+        StudentFindModel.model_validate({"nachnam": "Muster"})
+
+    assert exc.value.errors()[0]["type"] == "extra_forbidden"
+    assert exc.value.errors()[0]["loc"] == ("nachnam",)
+
+
+def test_find_model_is_frozen() -> None:
+    """Ein validierter Suchauftrag ist unveränderlich."""
+    model = StudentFindModel(nachname="Muster")
+
+    with pytest.raises(ValidationError) as exc:
+        # Absichtlicher Schreibversuch prüft auch den Schutz zur Laufzeit.
+        model.nachname = "Anders"  # ty: ignore[invalid-assignment]
+
+    assert exc.value.errors()[0]["type"] == "frozen_instance"

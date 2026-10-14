@@ -87,3 +87,31 @@ def test_get_nicht_vorhandener_nachname(client: Client) -> None:
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.headers["content-type"] == "application/problem+json"
     assert response.json()["title"] == "Not Found"
+
+
+@pytest.mark.parametrize(
+    ("nachname", "expected_status"),
+    [("muster", HTTPStatus.OK), ("Mustermann", HTTPStatus.NOT_FOUND)],
+)
+def test_get_kombinierte_suchparameter(
+    client: Client, nachname: str, expected_status: HTTPStatus
+) -> None:
+    """Bei kombinierten Filtern müssen Nachname und Emailadresse passen."""
+    response = client.get(
+        "/rest",
+        params={"nachname": nachname, "email": "erika.musterfrau@h-ka.de"},
+    )
+
+    assert response.status_code == expected_status
+    if expected_status == HTTPStatus.OK:
+        assert [student["vorname"] for student in response.json()] == ["Erika"]
+
+
+def test_get_unbekannter_suchparameter(client: Client) -> None:
+    """Unbekannte Parameter werden auch neben einem gültigen Filter abgewiesen."""
+    response = client.get("/rest", params={"nachname": "muster", "nachnam": "muster"})
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+    error = response.json()["detail"][0]
+    assert error["type"] == "extra_forbidden"
+    assert error["loc"] == ["query", "nachnam"]

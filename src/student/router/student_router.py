@@ -2,13 +2,13 @@
 
 from typing import Annotated, Final
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import JSONResponse
 from loguru import logger
 
 from student.router.constants import ETAG, IF_NONE_MATCH, IF_NONE_MATCH_MIN_LEN
 from student.router.dependencies import get_service
-from student.router.student_find_model import StudentResponseModel
+from student.router.student_find_model import StudentFindModel, StudentResponseModel
 lazy from student.service import StudentService
 
 __all__ = ["student_router"]
@@ -59,19 +59,19 @@ def get_by_id(
 
 @student_router.get("", response_model=list[StudentResponseModel])
 def get(
+    find_model: Annotated[StudentFindModel, Query()],
     service: Annotated[StudentService, Depends(get_service)],
-    nachname: str | None = None,
-    email: str | None = None,
 ) -> list[StudentResponseModel]:
     """Suche mit Query-Parametern.
 
     :param service: Injizierter Service für Geschäftslogik
-    :param nachname: Optionaler Query-Parameter für einen Teil des Nachnamens
-    :param email: Optionaler Query-Parameter für die Emailadresse
+    :param find_model: Validierte Query-Parameter für Nachname und Emailadresse
     :return: Liste der gefundenen Studierenden als Response-Modelle
     :rtype: list[StudentResponseModel]
     :raises NotFoundError: Falls nichts gefunden wurde, als 404 durch den Handler
     """
-    logger.debug("nachname={}, email={}", nachname, email)
-    studenten: Final = service.find(nachname=nachname, email=email)
+    logger.debug("search={}", find_model)
+    studenten: Final = service.find(
+        nachname=find_model.nachname, email=find_model.email
+    )
     return [StudentResponseModel.from_dto(student) for student in studenten]

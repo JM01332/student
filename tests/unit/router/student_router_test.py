@@ -1,4 +1,4 @@
-"""Unit-Tests für bedingte GET-Requests ohne Datenbank."""
+"""Unit-Tests für bedingte GET-Requests und Suchparameter ohne Datenbank."""
 
 import json
 from decimal import Decimal
@@ -9,7 +9,8 @@ import pytest
 from fastapi import Request
 lazy from pytest_mock import MockerFixture
 
-from student.router.student_router import get_by_id
+from student.router.student_find_model import StudentFindModel
+from student.router.student_router import get, get_by_id
 from student.service import PruefungsleistungDTO, StudentDTO, StudentService
 from student.service.exceptions import NotFoundError
 
@@ -69,3 +70,25 @@ def test_get_missing_student_still_raises_not_found(service: Mock) -> None:
 
     with pytest.raises(NotFoundError):
         get_by_id(999999, _request('"3"'), service)
+
+
+@pytest.mark.parametrize(
+    ("nachname", "email"),
+    [
+        (None, None),
+        ("Muster", None),
+        (None, "max@example.org"),
+        ("Muster", "max@example.org"),
+    ],
+)
+def test_search_passes_filters_to_service(
+    service: Mock, nachname: str | None, email: str | None
+) -> None:
+    """Optionale Filter werden unverändert an den Service weitergereicht."""
+    service.find.return_value = [service.find_by_id.return_value]
+
+    result = get(StudentFindModel(nachname=nachname, email=email), service)
+
+    service.find.assert_called_once_with(nachname=nachname, email=email)
+    assert [student.id for student in result] == [1]
+    assert result[0].pruefungsleistungen[0].note == Decimal("1.3")
