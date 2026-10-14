@@ -52,7 +52,19 @@ def test_get_ohne_suchparameter(client: Client) -> None:
     response = client.get("/rest")
 
     assert response.status_code == HTTPStatus.OK
-    assert {student["id"] for student in response.json()} == {1, 20, 30, 40, 50}
+    assert response.json()["page"] == {
+        "size": 5,
+        "number": 0,
+        "total_elements": 5,
+        "total_pages": 1,
+    }
+    assert {student["id"] for student in response.json()["content"]} == {
+        1,
+        20,
+        30,
+        40,
+        50,
+    }
 
 
 def test_get_teil_nachname(client: Client) -> None:
@@ -60,8 +72,9 @@ def test_get_teil_nachname(client: Client) -> None:
     response = client.get("/rest", params={"nachname": "muster"})
 
     assert response.status_code == HTTPStatus.OK
-    nachnamen = {student["nachname"] for student in response.json()}
+    nachnamen = {student["nachname"] for student in response.json()["content"]}
     assert nachnamen == {"Mustermann", "Musterfrau"}
+    assert response.json()["page"]["total_elements"] == len(nachnamen)
 
 
 def test_get_nachname_ohne_gross_kleinschreibung(client: Client) -> None:
@@ -69,7 +82,9 @@ def test_get_nachname_ohne_gross_kleinschreibung(client: Client) -> None:
     response = client.get("/rest", params={"nachname": "MANN"})
 
     assert response.status_code == HTTPStatus.OK
-    assert [student["nachname"] for student in response.json()] == ["Mustermann"]
+    assert [student["nachname"] for student in response.json()["content"]] == [
+        "Mustermann"
+    ]
 
 
 def test_get_email(client: Client) -> None:
@@ -77,7 +92,7 @@ def test_get_email(client: Client) -> None:
     response = client.get("/rest", params={"email": "erika.musterfrau@h-ka.de"})
 
     assert response.status_code == HTTPStatus.OK
-    assert [student["vorname"] for student in response.json()] == ["Erika"]
+    assert [student["vorname"] for student in response.json()["content"]] == ["Erika"]
 
 
 def test_get_nicht_vorhandener_nachname(client: Client) -> None:
@@ -104,7 +119,9 @@ def test_get_kombinierte_suchparameter(
 
     assert response.status_code == expected_status
     if expected_status == HTTPStatus.OK:
-        assert [student["vorname"] for student in response.json()] == ["Erika"]
+        assert [student["vorname"] for student in response.json()["content"]] == [
+            "Erika"
+        ]
 
 
 def test_get_unbekannter_suchparameter(client: Client) -> None:
@@ -128,7 +145,13 @@ def test_get_pagination(
     response = client.get("/rest", params={"page": page, "size": size})
 
     assert response.status_code == HTTPStatus.OK
-    assert [student["id"] for student in response.json()] == expected_ids
+    assert [student["id"] for student in response.json()["content"]] == expected_ids
+    assert response.json()["page"] == {
+        "size": size,
+        "number": page,
+        "total_elements": 5,
+        "total_pages": 3 if size else 1,
+    }
 
 
 def test_get_pagination_mit_filtern(client: Client) -> None:
@@ -144,7 +167,14 @@ def test_get_pagination_mit_filtern(client: Client) -> None:
     )
 
     assert response.status_code == HTTPStatus.OK
-    assert [student["vorname"] for student in response.json()] == ["Erika"]
+    assert [student["vorname"] for student in response.json()["content"]] == ["Erika"]
+
+    assert response.json()["page"] == {
+        "size": 1,
+        "number": 0,
+        "total_elements": 1,
+        "total_pages": 1,
+    }
 
 
 def test_get_leere_seite(client: Client) -> None:
@@ -165,3 +195,22 @@ def test_get_ungueltige_pagination(client: Client, parameter: str, value: str) -
 
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
     assert response.json()["detail"][0]["loc"] == ["query", parameter]
+
+
+@pytest.mark.parametrize("page", [0, 1])
+def test_get_filtered_page_counts_all_matches(client: Client, page: int) -> None:
+    """Die Gesamtanzahl zählt alle gefilterten Treffer unabhängig vom Ausschnitt."""
+    response = client.get(
+        "/rest", params={"nachname": "muster", "page": page, "size": 1}
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert [student["id"] for student in response.json()["content"]] == [[1], [20]][
+        page
+    ]
+    assert response.json()["page"] == {
+        "size": 1,
+        "number": page,
+        "total_elements": 2,
+        "total_pages": 2,
+    }

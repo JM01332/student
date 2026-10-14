@@ -10,7 +10,8 @@ Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
 - `GET /rest/{id}`: ein Studierender anhand der ID
   mit ETag; passendes `If-None-Match` liefert HTTP 304 ohne Body
 - `GET /rest?nachname=...&email=...`: Suche (Teil des Nachnamens bzw. Emailadresse,
-  jeweils ohne Groß-/Kleinschreibung); ohne Parameter alle Studierenden
+  jeweils ohne Groß-/Kleinschreibung), mit Seiteninhalt und Metadaten;
+  ohne Parameter die erste Seite mit bis zu fünf Studierenden
 - `GET /health/liveness` und `GET /health/readiness`: Server bzw. Server und
   Datenbank bereit
 - `GET /hello/`: Demo-Endpunkt
@@ -295,8 +296,7 @@ Versionswert in doppelten Anführungszeichen. ETag-Listen, `*` und schwache ETag
 
 **Offen, in dieser Reihenfolge:**
 
-1. Vorbereitete Seitenmodelle und Metadatenberechnung an REST anbinden.
-2. POST mit Validierung.
+1. POST mit Validierung, aufgeteilt in kleine, einzeln prüfbare Pakete.
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
 Prüfungsleistungen (siehe `src/student/entity`).
@@ -310,25 +310,28 @@ von DTOs und wirft bei einem leeren Ergebnis `NotFoundError`, auch bei einer
 leeren Seite.
 
 `GET /rest?page=1&size=2` liefert die zweite Seite mit höchstens zwei Treffern
-als JSON-Liste. Ohne Seitenparameter gelten `page=0` und `size=5` wie im Beispiel.
+im Feld `content` der JSON-Seitenantwort. Ohne Seitenparameter gelten `page=0`
+und `size=5` wie im Beispiel.
 Erlaubt sind `page >= 0` und `0 <= size <= 100`; `size=0` liefert unabhängig
 von `page` alle Treffer. Beide Suchfilter lassen sich mit Pagination kombinieren.
 Ungültige Werte führen zu HTTP 422, eine leere Seite zu HTTP 404 mit ProblemDetails.
-Gesamtanzahl und Seitenmetadaten sind noch nicht Bestandteil der Antwort.
+Das Feld `page` enthält `size`, `number`, `total_elements` und `total_pages`.
 
 `StudentRepository.count` ermittelt bereits die Gesamtanzahl mit denselben
 optionalen Suchfiltern wie `find`, einschließlich kombinierter Filter. Die
 SQL-Zählabfrage zählt Studierende ohne Joins und unabhängig von der Pagination;
 ohne Treffer liefert sie 0. `StudentService.count(nachname, email)` stellt diese
 Zählung mit eigener Session-Verwaltung bereit und liefert ebenfalls 0 ohne
-`NotFoundError`. Die Anbindung der Gesamtanzahl an die REST-Antwort folgt separat.
+`NotFoundError`. Der Router nutzt diese Zählung für die Gesamtanzahl der
+gefilterten Treffer.
 
-Die Pydantic-Antwortmodelle für diesen nächsten Schritt sind vorbereitet:
+Die REST-Suche verwendet folgende Pydantic-Antwortmodelle:
 `StudentPageModel` enthält `content` mit den Studierendendaten und `page` mit
 `size`, `number` (nullbasiert), `total_elements` und `total_pages`.
 Die Struktur entspricht dem FastAPI-Beispiel. `PageMetaModel.from_pageable`
 berechnet die Seitenanzahl aus Pagination und Gesamtanzahl mit Aufrundung.
 Ohne Treffer ergeben sich bei positiver Seitengröße 0 Seiten; `size=0` ergibt
 wie im Beispiel stets eine unbegrenzte Seite. Größe und angefragte Seitennummer
-werden unverändert übernommen. Die REST-Anbindung folgt separat;
-`GET /rest` liefert derzeit weiterhin eine JSON-Liste.
+werden unverändert übernommen. Suchparameter und Pagination einschließlich
+Seitenmetadaten sind damit abgeschlossen. Clients lesen die Treffer nun aus
+`content` statt aus einer JSON-Liste auf oberster Ebene.

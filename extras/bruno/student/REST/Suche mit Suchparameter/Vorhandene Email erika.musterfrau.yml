@@ -16,12 +16,18 @@ runtime:
     - expression: res.status
       operator: eq
       value: "200"
-    - expression: res.body
+    - expression: res.body.content
       operator: length
       value: "1"
-    - expression: res.body[0].vorname
+    - expression: res.body.content[0].vorname
       operator: eq
       value: Erika
+    - expression: res.body.page.total_elements
+      operator: eq
+      value: "1"
+    - expression: res.body.page.total_pages
+      operator: eq
+      value: "1"
 
 settings:
   encodeUrl: true

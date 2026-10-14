@@ -8,7 +8,12 @@ from loguru import logger
 
 from student.router.constants import ETAG, IF_NONE_MATCH, IF_NONE_MATCH_MIN_LEN
 from student.router.dependencies import get_service
-from student.router.student_find_model import StudentFindModel, StudentResponseModel
+from student.router.student_find_model import (
+    PageMetaModel,
+    StudentFindModel,
+    StudentPageModel,
+    StudentResponseModel,
+)
 lazy from student.service import StudentService
 
 __all__ = ["student_router"]
@@ -57,23 +62,30 @@ def get_by_id(
     )
 
 
-@student_router.get("", response_model=list[StudentResponseModel])
+@student_router.get("", response_model=StudentPageModel)
 def get(
     find_model: Annotated[StudentFindModel, Query()],
     service: Annotated[StudentService, Depends(get_service)],
-) -> list[StudentResponseModel]:
+) -> StudentPageModel:
     """Suche mit Query-Parametern.
 
     :param service: Injizierter Service für Geschäftslogik
     :param find_model: Validierte Suchfilter und Pagination-Parameter
-    :return: Liste der gefundenen Studierenden als Response-Modelle
-    :rtype: list[StudentResponseModel]
+    :return: Gefundene Studierende mit Seitenmetadaten
+    :rtype: StudentPageModel
     :raises NotFoundError: Falls nichts gefunden wurde, als 404 durch den Handler
     """
     logger.debug("search={}", find_model)
+    pageable: Final = find_model.to_pageable()
     studenten: Final = service.find(
         nachname=find_model.nachname,
         email=find_model.email,
-        pageable=find_model.to_pageable(),
+        pageable=pageable,
     )
-    return [StudentResponseModel.from_dto(student) for student in studenten]
+    total_elements: Final = service.count(
+        nachname=find_model.nachname, email=find_model.email
+    )
+    return StudentPageModel(
+        content=tuple(StudentResponseModel.from_dto(student) for student in studenten),
+        page=PageMetaModel.from_pageable(pageable, total_elements),
+    )

@@ -87,6 +87,7 @@ def test_search_passes_filters_to_service(
 ) -> None:
     """Optionale Filter werden unverändert an den Service weitergereicht."""
     service.find.return_value = [service.find_by_id.return_value]
+    service.count.return_value = 7
 
     result = get(
         StudentFindModel(nachname=nachname, email=email, page=page, size=size), service
@@ -98,5 +99,25 @@ def test_search_passes_filters_to_service(
     assert kwargs["email"] == email
     assert kwargs["pageable"].number == page
     assert kwargs["pageable"].size == size
-    assert [student.id for student in result] == [1]
-    assert result[0].pruefungsleistungen[0].note == Decimal("1.3")
+    assert [student.id for student in result.content] == [1]
+    assert result.content[0].pruefungsleistungen[0].note == Decimal("1.3")
+    service.count.assert_called_once_with(nachname=nachname, email=email)
+    assert result.page.model_dump() == {
+        "size": size,
+        "number": page,
+        "total_elements": 7,
+        "total_pages": (7 + size - 1) // size if size else 1,
+    }
+    body = result.model_dump(mode="json")
+    assert body["content"][0]["pruefungsleistungen"][0]["note"] == "1.3"
+    assert "version" not in body["content"][0]
+
+
+def test_search_missing_page_raises_not_found(service: Mock) -> None:
+    """Eine leere Seite bleibt ein Fehler und wird nicht als leere Seite verpackt."""
+    service.find.side_effect = NotFoundError(nachname="xyz")
+
+    with pytest.raises(NotFoundError):
+        get(StudentFindModel(nachname="xyz"), service)
+
+    service.count.assert_not_called()

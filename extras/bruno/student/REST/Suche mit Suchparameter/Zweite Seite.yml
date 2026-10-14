@@ -1,0 +1,42 @@
+info:
+  name: Zweite Seite
+  type: http
+  seq: 6
+
+http:
+  method: GET
+  url: "{{restUrl}}?page=1&size=2"
+  headers:
+    - name: Accept
+      value: application/json
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.content
+      operator: length
+      value: "2"
+    - expression: res.body.page.total_elements
+      operator: eq
+      value: "5"
+    - expression: res.body.page.total_pages
+      operator: eq
+      value: "3"
+    - expression: res.body.page.number
+      operator: eq
+      value: "1"
+    - expression: res.body.page.size
+      operator: eq
+      value: "2"
+    - expression: res.body.content[0].id
+      operator: eq
+      value: "30"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
