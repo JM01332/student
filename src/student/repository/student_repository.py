@@ -99,3 +99,61 @@ class StudentRepository:
         count: Final = session.scalar(statement)
         logger.debug("count={}", count)
         return count if count is not None else 0
+
+    def exists_email(self, email: str, session: Session) -> bool:
+        """Abfrage, ob es die Emailadresse bereits gibt (ohne Groß-/Kleinschreibung).
+
+        :param email: Emailadresse
+        :param session: Session für SQLAlchemy
+        :return: True, falls es die Emailadresse bereits gibt, False sonst
+        :rtype: bool
+        """
+        logger.debug("email={}", email)
+        statement: Final = (
+            select(func.count())
+            .select_from(Student)
+            .where(func.lower(Student.email) == email.lower())
+        )
+        anzahl: Final = session.scalar(statement)
+        logger.debug("anzahl={}", anzahl)
+        return anzahl is not None and anzahl > 0
+
+    def exists_matrikelnummer(self, matrikelnummer: str, session: Session) -> bool:
+        """Abfrage, ob es die Matrikelnummer bereits gibt.
+
+        :param matrikelnummer: Matrikelnummer
+        :param session: Session für SQLAlchemy
+        :return: True, falls es die Matrikelnummer bereits gibt, False sonst
+        :rtype: bool
+        """
+        logger.debug("matrikelnummer={}", matrikelnummer)
+        statement: Final = (
+            select(func.count())
+            .select_from(Student)
+            .where(Student.matrikelnummer == matrikelnummer)
+        )
+        anzahl: Final = session.scalar(statement)
+        logger.debug("anzahl={}", anzahl)
+        return anzahl is not None and anzahl > 0
+
+    def create(self, student: Student, session: Session) -> Student:
+        """Einen neuen Studierenden mit Adresse und Prüfungsleistungen speichern.
+
+        :param student: Die Daten des neuen Studierenden ohne ID
+        :param session: Session für SQLAlchemy
+        :return: Der neu angelegte Studierende mit generierter ID
+        :rtype: Student
+        """
+        logger.debug(
+            "student={}, adresse={}, pruefungsleistungen={}",
+            student,
+            student.adresse,
+            student.pruefungsleistungen,
+        )
+        # Adresse und Prüfungsleistungen werden per cascade="save-update" mitgespeichert
+        session.add(instance=student)
+        # flush(): INSERT sofort ausführen, damit die generierte ID vor dem COMMIT
+        # bekannt ist (z.B. für den Location-Header)
+        session.flush(objects=[student])
+        logger.debug("student_id={}", student.id)
+        return student
