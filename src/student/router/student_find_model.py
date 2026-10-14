@@ -101,6 +101,25 @@ class PageMetaModel(BaseModel):
     total_elements: int
     total_pages: int
 
+    @classmethod
+    def from_pageable(cls, pageable: Pageable, total_elements: int) -> PageMetaModel:
+        """Berechnet Metadaten aus validierter Pagination und Gesamtanzahl.
+
+        Die Seitenanzahl wird aufgerundet; size=0 bedeutet wie im Beispiel
+        eine unbegrenzte Seite. Größe und Seitennummer bleiben unverändert.
+        """
+        total_pages = (
+            (total_elements + pageable.size - 1) // pageable.size
+            if pageable.size > 0
+            else 1
+        )
+        return cls(
+            size=pageable.size,
+            number=pageable.number,
+            total_elements=total_elements,
+            total_pages=total_pages,
+        )
+
 
 class StudentPageModel(BaseModel):
     """Pydantic-Modell für Suchergebnisse mit Seitenmetadaten."""

@@ -5,6 +5,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
+from student.repository.pageable import Pageable
 from student.router.student_find_model import (
     PageMetaModel,
     StudentFindModel,
@@ -146,4 +147,36 @@ def test_page_model_requires_complete_metadata() -> None:
         ("page", "number"),
         ("page", "total_elements"),
         ("page", "total_pages"),
+    }
+
+
+@pytest.mark.parametrize(
+    ("size", "number", "total_elements", "total_pages"),
+    [
+        (5, 0, 0, 0),
+        (5, 0, 1, 1),
+        (5, 0, 5, 1),
+        (5, 1, 6, 2),
+        (5, 1, 10, 2),
+        (5, 2, 11, 3),
+        (5, 10, 6, 2),
+        (1, 0, 3, 3),
+        (0, 0, 5, 1),
+        (0, 7, 5, 1),
+        (0, 0, 0, 1),
+    ],
+)
+def test_page_metadata_calculation(
+    size: int, number: int, total_elements: int, total_pages: int
+) -> None:
+    """Seitengrenzen und unbegrenzte Abfragen entsprechen dem Beispiel."""
+    metadata = PageMetaModel.from_pageable(
+        Pageable(size=size, number=number), total_elements
+    )
+
+    assert metadata.model_dump() == {
+        "size": size,
+        "number": number,
+        "total_elements": total_elements,
+        "total_pages": total_pages,
     }

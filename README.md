@@ -295,7 +295,7 @@ Versionswert in doppelten Anführungszeichen. ETag-Listen, `*` und schwache ETag
 
 **Offen, in dieser Reihenfolge:**
 
-1. Vorbereitete Seitenmodelle an REST anbinden und Seitenmetadaten berechnen.
+1. Vorbereitete Seitenmodelle und Metadatenberechnung an REST anbinden.
 2. POST mit Validierung.
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
@@ -326,5 +326,9 @@ Zählung mit eigener Session-Verwaltung bereit und liefert ebenfalls 0 ohne
 Die Pydantic-Antwortmodelle für diesen nächsten Schritt sind vorbereitet:
 `StudentPageModel` enthält `content` mit den Studierendendaten und `page` mit
 `size`, `number` (nullbasiert), `total_elements` und `total_pages`.
-Die Struktur entspricht dem FastAPI-Beispiel. Berechnung und REST-Anbindung
-folgen separat; `GET /rest` liefert derzeit weiterhin eine JSON-Liste.
+Die Struktur entspricht dem FastAPI-Beispiel. `PageMetaModel.from_pageable`
+berechnet die Seitenanzahl aus Pagination und Gesamtanzahl mit Aufrundung.
+Ohne Treffer ergeben sich bei positiver Seitengröße 0 Seiten; `size=0` ergibt
+wie im Beispiel stets eine unbegrenzte Seite. Größe und angefragte Seitennummer
+werden unverändert übernommen. Die REST-Anbindung folgt separat;
+`GET /rest` liefert derzeit weiterhin eine JSON-Liste.
