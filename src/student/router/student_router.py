@@ -1,10 +1,27 @@
+# Copyright (C) 2023 - present Juergen Zimmermann, Hochschule Karlsruhe
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 """StudentRouter."""
 
 from typing import Annotated, Final
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi.responses import JSONResponse
 from loguru import logger
 
+from student.router.constants import ETAG, IF_NONE_MATCH, IF_NONE_MATCH_MIN_LEN
 from student.router.dependencies import get_service
 from student.router.student_find_model import StudentResponseModel
 lazy from student.service import StudentService
@@ -17,19 +34,42 @@ student_router: Final = APIRouter(tags=["Lesen"])
 @student_router.get("/{student_id}", response_model=StudentResponseModel)
 def get_by_id(
     student_id: int,
+    request: Request,
     service: Annotated[StudentService, Depends(get_service)],
-) -> StudentResponseModel:
+) -> Response:
     """Suche mit der Student-ID.
 
     :param student_id: ID des gesuchten Studierenden als Pfadparameter
+    :param request: Request mit optionalem If-None-Match-Header
     :param service: Injizierter Service für Geschäftslogik
-    :return: Daten des gefundenen Studierenden als Response-Modell
-    :rtype: StudentResponseModel
+    :return: JSON mit ETag oder HTTP 304 ohne Body bei gleicher Version
+    :rtype: Response
     :raises NotFoundError: Falls es die ID nicht gibt, als 404 durch den Handler
     """
     logger.debug("student_id={}", student_id)
     student: Final = service.find_by_id(student_id)
-    return StudentResponseModel.from_dto(student)
+    headers: Final = {ETAG: f'"{student.version}"'}
+    if_none_match: Final = request.headers.get(IF_NONE_MATCH)
+    if (
+        if_none_match is not None
+        and len(if_none_match) >= IF_NONE_MATCH_MIN_LEN
+        and if_none_match.startswith('"')
+        and if_none_match.endswith('"')
+    ):
+        version = if_none_match[1:-1]
+        try:
+            if int(version) == student.version:
+                return Response(
+                    status_code=status.HTTP_304_NOT_MODIFIED,
+                    headers=headers,
+                )
+        except ValueError:
+            logger.debug("invalid version={}", version)
+
+    return JSONResponse(
+        content=StudentResponseModel.from_dto(student).model_dump(mode="json"),
+        headers=headers,
+    )
 
 
 @student_router.get("", response_model=list[StudentResponseModel])

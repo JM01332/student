@@ -39,7 +39,7 @@ class PruefungsleistungResponseModel(BaseModel):
 class StudentResponseModel(BaseModel):
     """Pydantic-Modell für einen gefundenen Studierenden als Response.
 
-    Die Versionsnummer ist bewusst nicht enthalten: Sie wird später als ETag im
+    Die Versionsnummer ist bewusst nicht enthalten: Sie wird bei GET nach ID als ETag im
     Header übertragen, wie im FastAPI-Beispiel.
     """
 

@@ -38,7 +38,7 @@ def test_from_dto_uebernimmt_attribute() -> None:
 
 
 def test_from_dto_ohne_version() -> None:
-    """Die Versionsnummer ist nicht im JSON, sie kommt später als ETag."""
+    """Die Versionsnummer ist nicht im JSON, sie kommt bei GET nach ID als ETag."""
     json = StudentResponseModel.from_dto(_student_dto()).model_dump(mode="json")
 
     assert "version" not in json

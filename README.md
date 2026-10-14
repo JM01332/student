@@ -8,6 +8,7 @@ Die FastAPI-Anwendung unter `src/student/` liest Studierende mit Adresse (1:1) u
 Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
 
 - `GET /rest/{id}`: ein Studierender anhand der ID
+  mit ETag; passendes `If-None-Match` liefert HTTP 304 ohne Body
 - `GET /rest?nachname=...&email=...`: Suche (Teil des Nachnamens bzw. Emailadresse,
   jeweils ohne Groß-/Kleinschreibung); ohne Parameter alle Studierenden
 - `GET /health/liveness` und `GET /health/readiness`: Server bzw. Server und
@@ -22,7 +23,7 @@ SQLAlchemy, DTOs als Rückgabe des Service und Pydantic-Response-Models im Route
 Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
 `fastapi_app.py` macht daraus die HTTP-Antwort. Der Server läuft über HTTPS mit einem
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
-Geplant: ETag, Schreiben (POST, PUT, DELETE), Validierung von Requests mit Pydantic,
+Geplant: Schreiben (POST, PUT, DELETE), Validierung von Requests mit Pydantic,
 GraphQL, Keycloak und Docker.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
@@ -179,9 +180,6 @@ fehlschlägt.
 
 Unit-Tests in `tests/unit` testen einzelne Klassen wie den Service mit Mocks
 (`pytest-mock`) statt echter Abhängigkeiten.
-Beim Testlauf erscheint eine Deprecation-Warnung zur Nutzung von httpx im
-TestClient mit dem Hinweis auf httpx2. Der Test besteht; die Umstellung bleibt ein
-offener Punkt für ein späteres Dependency-Paket.
 
 ## Continuous Integration
 
@@ -282,20 +280,20 @@ Im Abschnitt „REST-Schnittstelle, DB-Zugriff, Validierung, Bruno und Testen“
 erledigt: Logging mit loguru, Pfad- und Query-Parameter, OR-Mapping mit SQLAlchemy
 und PostgreSQL einschließlich Fetch-Join, Neuladen der DB im Dev-Modus, Bruno,
 Unit-Tests mit Mocks, Integrationstests mit pytest und httpx sowie CI, Health-Router
-und Fehlerbehandlung mit `NotFoundError` und ProblemDetails.
+und Fehlerbehandlung mit `NotFoundError` und ProblemDetails, Pydantic-Response-Models
+sowie ETag und `If-None-Match` für GET nach ID.
+
+`GET /rest/{id}` liefert die Version als ETag (z.B. `"0"`). Bei einem passenden
+`If-None-Match: "0"` antwortet der Server mit 304 ohne Body und mit ETag.
+Bei anderer Version oder ungültigem Header folgt 200 mit JSON und aktuellem ETag.
+Die Header-Auswertung entspricht dem Beispiel: ein einzelner ganzzahliger
+Versionswert in doppelten Anführungszeichen. ETag-Listen, `*` und schwache ETags
+(`W/"0"`) werden in diesem Paket nicht ausgewertet.
 
 **Offen, in dieser Reihenfolge:**
 
-1. Response-Models mit Pydantic für die GET-Endpunkte (wie `PatientResponseModel` im
-   FastAPI-Beispiel)
-2. **ETag und `If-None-Match` (304) für `GET /rest/{id}` im Stil des Beispiels:** Der
-   Router baut die Antwort selbst mit
-   `JSONResponse(content=StudentResponseModel.from_dto(...).model_dump(mode="json"),
-   headers={"ETag": ...})` und zerlegt den Header `If-None-Match` wie
-   `patient_router.py` (Anführungszeichen, Zahl, `ValueError` abfangen). Bewusst
-   **nicht** über den kürzeren Weg mit `response: Response`, um nah am Beispiel zu
-   bleiben (einheitliches Muster für 201/204/304, keine zweite Validierung).
-3. Suchparameter als Pydantic-Modell und Pagination, danach POST mit Validierung.
+1. Suchparameter als Pydantic-Modell und Pagination.
+2. POST mit Validierung.
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
 Prüfungsleistungen (siehe `src/student/entity`).

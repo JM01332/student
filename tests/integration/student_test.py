@@ -12,6 +12,28 @@ def test_get_by_id(client: Client) -> None:
 
     assert response.status_code == HTTPStatus.OK
     assert response.json()["nachname"] == "Mustermann"
+    assert response.headers["etag"] == '"0"'
+    assert "version" not in response.json()
+    assert response.json()["pruefungsleistungen"][0]["note"] == "1.3"
+
+
+def test_get_by_id_not_modified(client: Client) -> None:
+    """Eine passende Version liefert 304 ohne Body und mit aktuellem ETag."""
+    response = client.get("/rest/1", headers={"If-None-Match": '"0"'})
+
+    assert response.status_code == HTTPStatus.NOT_MODIFIED
+    assert response.content == b""
+    assert response.headers["etag"] == '"0"'
+
+
+@pytest.mark.parametrize("etag", ['"99"', '"abc"', "0", '""'])
+def test_get_by_id_other_or_invalid_etag(client: Client, etag: str) -> None:
+    """Andere oder ungültige Versionen liefern weiterhin den Datensatz."""
+    response = client.get("/rest/1", headers={"If-None-Match": etag})
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.headers["etag"] == '"0"'
+    assert response.json()["id"] == 1
 
 
 # Derselbe Test läuft einmal pro Wert: 0 als Grenzfall, 999999 als hohe ID
