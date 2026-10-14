@@ -9,6 +9,7 @@ from sqlalchemy.orm import joinedload, selectinload
 lazy from sqlalchemy.orm import Session
 
 from student.entity import Student
+lazy from student.repository.pageable import Pageable
 
 __all__ = ["StudentRepository"]
 
@@ -45,12 +46,14 @@ class StudentRepository:
         nachname: str | None,
         email: str | None,
         session: Session,
+        pageable: Pageable | None = None,
     ) -> Sequence[Student]:
         """Suche mit optionalen Suchparametern in der DB.
 
         :param nachname: Teil des Nachnamens, ohne Groß-/Kleinschreibung
         :param email: Emailadresse, ohne Groß-/Kleinschreibung
         :param session: Session für SQLAlchemy
+        :param pageable: Validierte Seiteneinteilung; None oder size=0 für alle Treffer
         :return: Gefundene Studierende, nach ID sortiert, ggf. leer
         :rtype: Sequence[Student]
         """
@@ -64,6 +67,11 @@ class StudentRepository:
             statement = statement.where(Student.nachname.ilike(f"%{nachname}%"))
         if email is not None:
             statement = statement.where(func.lower(Student.email) == email.lower())
-        studenten: Final = session.scalars(statement.order_by(Student.id)).all()
+        statement = statement.order_by(Student.id)
+        if pageable is not None and pageable.size != 0:
+            statement = statement.limit(pageable.size).offset(
+                pageable.number * pageable.size
+            )
+        studenten: Final = session.scalars(statement).all()
         logger.debug("{}", studenten)
         return studenten
