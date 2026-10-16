@@ -11,7 +11,9 @@ from student.repository import StudentRepository
 from student.service import (
     EmailExistsError,
     MatrikelnummerExistsError,
+    NotFoundError,
     StudentWriteService,
+    VersionOutdatedError,
 )
 
 NEUE_ID = 1000
@@ -24,6 +26,8 @@ def repo_mock(mocker: MockerFixture) -> Mock:
     repo = mocker.Mock(spec=StudentRepository)
     repo.exists_email.return_value = False
     repo.exists_matrikelnummer.return_value = False
+    repo.exists_email_other_id.return_value = False
+    repo.exists_matrikelnummer_other_id.return_value = False
     return repo
 
 
@@ -133,4 +137,143 @@ def test_create_matrikelnummer_existiert(
 
     assert err.value.matrikelnummer == "999999"
     repo_mock.create.assert_not_called()
+    session_mock.commit.assert_not_called()
+
+
+VORHANDENE_ID = 1001
+VERSION = 2
+
+
+def _student_db() -> Student:
+    """Vorhandener Studierender, wie ihn repo.find_by_id() aus der DB liefert."""
+    student = _neuer_student()
+    student.id = VORHANDENE_ID
+    student.version = VERSION
+    return student
+
+
+def _geaenderter_student() -> Student:
+    """Neue Daten, wie sie StudentUpdateModel.to_student() liefert."""
+    return Student(
+        id=None,
+        matrikelnummer="888888",
+        nachname="Neu",
+        vorname="Nora",
+        username=None,
+        email="nora.neu@h-ka.de",
+        adresse=None,
+        pruefungsleistungen=[],
+        erzeugt=None,
+        aktualisiert=None,
+    )
+
+
+def test_update(
+    service: StudentWriteService,
+    repo_mock: Mock,
+    session_mock: Mock,
+) -> None:
+    """Die neuen Daten werden übernommen; das DTO hat die erhöhte Version."""
+    student_db = _student_db()
+    repo_mock.find_by_id.return_value = student_db
+    repo_mock.update.return_value = student_db
+
+    student_dto = service.update(
+        student=_geaenderter_student(), student_id=VORHANDENE_ID, version=VERSION
+    )
+
+    assert student_dto.id == VORHANDENE_ID
+    assert student_dto.nachname == "Neu"
+    assert student_dto.matrikelnummer == "888888"
+    assert student_dto.version == VERSION + 1
+    repo_mock.update.assert_called_once_with(student=student_db, session=session_mock)
+    session_mock.commit.assert_called_once()
+
+
+def test_update_gleiche_email_und_matrikelnummer(
+    service: StudentWriteService,
+    repo_mock: Mock,
+) -> None:
+    """Unveränderte Email und Matrikelnummer werden nicht erneut geprüft."""
+    student_db = _student_db()
+    repo_mock.find_by_id.return_value = student_db
+    repo_mock.update.return_value = student_db
+
+    service.update(student=_neuer_student(), student_id=VORHANDENE_ID, version=VERSION)
+
+    repo_mock.exists_email_other_id.assert_not_called()
+    repo_mock.exists_matrikelnummer_other_id.assert_not_called()
+
+
+def test_update_nicht_gefunden(
+    service: StudentWriteService,
+    repo_mock: Mock,
+    session_mock: Mock,
+) -> None:
+    """Zu einer nicht vorhandenen ID gibt es NotFoundError."""
+    repo_mock.find_by_id.return_value = None
+
+    with pytest.raises(NotFoundError) as err:
+        service.update(
+            student=_geaenderter_student(), student_id=VORHANDENE_ID, version=VERSION
+        )
+
+    assert err.value.student_id == VORHANDENE_ID
+    session_mock.commit.assert_not_called()
+
+
+def test_update_version_veraltet(
+    service: StudentWriteService,
+    repo_mock: Mock,
+    session_mock: Mock,
+) -> None:
+    """Eine ältere Version als in der DB verhindert das Überschreiben."""
+    repo_mock.find_by_id.return_value = _student_db()
+    veraltet = VERSION - 1
+
+    with pytest.raises(VersionOutdatedError) as err:
+        service.update(
+            student=_geaenderter_student(), student_id=VORHANDENE_ID, version=veraltet
+        )
+
+    assert err.value.version == veraltet
+    repo_mock.update.assert_not_called()
+    session_mock.commit.assert_not_called()
+
+
+def test_update_email_existiert(
+    service: StudentWriteService,
+    repo_mock: Mock,
+    session_mock: Mock,
+) -> None:
+    """Die Email eines anderen Studierenden darf nicht übernommen werden."""
+    repo_mock.find_by_id.return_value = _student_db()
+    repo_mock.exists_email_other_id.return_value = True
+
+    with pytest.raises(EmailExistsError) as err:
+        service.update(
+            student=_geaenderter_student(), student_id=VORHANDENE_ID, version=VERSION
+        )
+
+    assert err.value.email == "nora.neu@h-ka.de"
+    repo_mock.update.assert_not_called()
+    session_mock.commit.assert_not_called()
+
+
+def test_update_matrikelnummer_existiert(
+    service: StudentWriteService,
+    repo_mock: Mock,
+    session_mock: Mock,
+) -> None:
+    """Die Matrikelnummer eines anderen Studierenden darf nicht übernommen werden."""
+    repo_mock.find_by_id.return_value = _student_db()
+    repo_mock.exists_matrikelnummer_other_id.return_value = True
+
+    with pytest.raises(MatrikelnummerExistsError) as err:
+        service.update(
+            student=_geaenderter_student(), student_id=VORHANDENE_ID, version=VERSION
+        )
+
+    assert err.value.matrikelnummer == "888888"
+    repo_mock.update.assert_not_called()
     session_mock.commit.assert_not_called()
