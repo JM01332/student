@@ -24,6 +24,7 @@ from student.service import (
     EmailExistsError,
     MatrikelnummerExistsError,
     NotFoundError,
+    VersionOutdatedError,
 )
 
 
@@ -131,7 +132,7 @@ def not_found_error_handler(_request: Request, err: NotFoundError) -> Response:
 
 @app.exception_handler(EmailExistsError)
 def email_exists_error_handler(_request: Request, err: EmailExistsError) -> Response:
-    """Errorhandler für EmailExistsError beim Anlegen.
+    """Errorhandler für EmailExistsError beim Anlegen und Ändern.
 
     :param _request: Request-Objekt (hier nicht benötigt)
     :param err: Exception, falls die Emailadresse bereits existiert
@@ -149,7 +150,7 @@ def matrikelnummer_exists_error_handler(
     _request: Request,
     err: MatrikelnummerExistsError,
 ) -> Response:
-    """Errorhandler für MatrikelnummerExistsError beim Anlegen.
+    """Errorhandler für MatrikelnummerExistsError beim Anlegen und Ändern.
 
     :param _request: Request-Objekt (hier nicht benötigt)
     :param err: Exception, falls die Matrikelnummer bereits existiert
@@ -158,5 +159,23 @@ def matrikelnummer_exists_error_handler(
     """
     return ProblemDetails.create(
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail=str(err),
+    ).to_response()
+
+
+@app.exception_handler(VersionOutdatedError)
+def version_outdated_error_handler(
+    _request: Request,
+    err: VersionOutdatedError,
+) -> Response:
+    """Errorhandler für VersionOutdatedError beim Ändern.
+
+    :param _request: Request-Objekt (hier nicht benötigt)
+    :param err: Exception, falls die Versionsnummer zum Ändern veraltet ist
+    :return: Response mit Statuscode 412 und ProblemDetails
+    :rtype: Response
+    """
+    return ProblemDetails.create(
+        status_code=status.HTTP_412_PRECONDITION_FAILED,
         detail=str(err),
     ).to_response()
