@@ -277,3 +277,17 @@ def test_update_matrikelnummer_existiert(
     assert err.value.matrikelnummer == "888888"
     repo_mock.update.assert_not_called()
     session_mock.commit.assert_not_called()
+
+
+def test_delete_by_id(
+    service: StudentWriteService,
+    repo_mock: Mock,
+    session_mock: Mock,
+) -> None:
+    """Das Löschen wird an das Repository weitergereicht und committet."""
+    service.delete_by_id(student_id=VORHANDENE_ID)
+
+    repo_mock.delete_by_id.assert_called_once_with(
+        student_id=VORHANDENE_ID, session=session_mock
+    )
+    session_mock.commit.assert_called_once()

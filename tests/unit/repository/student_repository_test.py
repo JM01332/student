@@ -220,3 +220,24 @@ def test_update_ohne_id(mocker: MockerFixture) -> None:
 
     assert result is None
     session.scalar.assert_not_called()
+
+
+def test_delete_by_id(mocker: MockerFixture) -> None:
+    """Ein vorhandener Studierender wird über die Session gelöscht."""
+    session = mocker.Mock(spec=Session)
+    student = mocker.sentinel.student
+    session.scalar.return_value = student
+
+    StudentRepository().delete_by_id(student_id=EIGENE_ID, session=session)
+
+    session.delete.assert_called_once_with(student)
+
+
+def test_delete_by_id_nicht_vorhanden(mocker: MockerFixture) -> None:
+    """Zu einer nicht vorhandenen ID wird nichts gelöscht."""
+    session = mocker.Mock(spec=Session)
+    session.scalar.return_value = None
+
+    StudentRepository().delete_by_id(student_id=EIGENE_ID, session=session)
+
+    session.delete.assert_not_called()

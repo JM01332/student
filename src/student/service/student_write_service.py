@@ -113,3 +113,16 @@ class StudentWriteService:
             # Die erhöhte Versionsnummer ist erst nach dem COMMIT sichtbar
             student_dto.version += 1
             return student_dto
+
+    def delete_by_id(self, student_id: int) -> None:
+        """Einen Studierenden anhand seiner ID löschen.
+
+        Eine nicht vorhandene ID ist kein Fehler: Danach gibt es den Studierenden
+        so oder so nicht (idempotentes DELETE).
+
+        :param student_id: ID des zu löschenden Studierenden
+        """
+        logger.debug("student_id={}", student_id)
+        with Session() as session:
+            self.repo.delete_by_id(student_id=student_id, session=session)
+            session.commit()

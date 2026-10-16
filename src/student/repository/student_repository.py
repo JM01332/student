@@ -220,3 +220,17 @@ class StudentRepository:
         session.flush(objects=[student])
         logger.debug("student_id={}", student.id)
         return student
+
+    def delete_by_id(self, student_id: int, session: Session) -> None:
+        """Einen Studierenden mit Adresse und Prüfungsleistungen löschen.
+
+        :param student_id: ID des zu löschenden Studierenden
+        :param session: Session für SQLAlchemy
+        """
+        logger.debug("student_id={}", student_id)
+        # Erst laden, damit SQLAlchemy per cascade="delete" auch Adresse und
+        # Prüfungsleistungen löscht; ein delete(Student) direkt in SQL täte das nicht
+        if (student := self.find_by_id(student_id=student_id, session=session)) is None:
+            return
+        session.delete(student)
+        logger.debug("ok")
