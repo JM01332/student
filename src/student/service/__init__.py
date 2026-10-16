@@ -5,6 +5,7 @@ from student.service.exceptions import (
     EmailExistsError,
     MatrikelnummerExistsError,
     NotFoundError,
+    VersionOutdatedError,
 )
 from student.service.pruefungsleistung_dto import PruefungsleistungDTO
 from student.service.student_dto import StudentDTO
@@ -20,4 +21,5 @@ __all__ = [
     "StudentDTO",
     "StudentService",
     "StudentWriteService",
+    "VersionOutdatedError",
 ]

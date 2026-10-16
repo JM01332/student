@@ -1,6 +1,11 @@
 """Exceptions in der Geschäftslogik."""
 
-__all__ = ["EmailExistsError", "MatrikelnummerExistsError", "NotFoundError"]
+__all__ = [
+    "EmailExistsError",
+    "MatrikelnummerExistsError",
+    "NotFoundError",
+    "VersionOutdatedError",
+]
 
 
 class EmailExistsError(Exception):
@@ -46,3 +51,15 @@ class NotFoundError(Exception):
         self.student_id = student_id
         self.nachname = nachname
         self.email = email
+
+
+class VersionOutdatedError(Exception):
+    """Exception, falls die Versionsnummer beim Aktualisieren veraltet ist."""
+
+    def __init__(self, version: int) -> None:
+        """Initialisierung von VersionOutdatedError mit veralteter Versionsnummer.
+
+        :param version: Veraltete Versionsnummer aus dem If-Match-Header
+        """
+        super().__init__(f"Veraltete Version: {version}")
+        self.version = version
