@@ -1,0 +1,25 @@
+info:
+  name: Vorhandene ID 50 loeschen
+  type: http
+  seq: 1
+
+http:
+  method: DELETE
+  url: "{{restUrl}}/:id"
+  params:
+    - name: id
+      value: "50"
+      type: path
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
