@@ -1,0 +1,42 @@
+info:
+  name: Ungueltige Daten
+  type: http
+  seq: 7
+
+http:
+  method: PUT
+  url: "{{restUrl}}/:id"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: If-Match
+      value: '"1"'
+  params:
+    - name: id
+      value: "30"
+      type: path
+  body:
+    type: json
+    data: |-
+      {
+          "matrikelnummer": "12",
+          "nachname": "schmidt",
+          "vorname": "Lena",
+          "email": "keine-email"
+      }
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "422"
+    - expression: res.body.detail
+      operator: length
+      value: "3"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

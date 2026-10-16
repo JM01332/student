@@ -1,0 +1,11 @@
+info:
+  name: Aendern
+  type: folder
+  seq: 4
+
+request:
+  auth: inherit
+
+docs:
+  content: Studierende per PUT mit If-Match ändern. "Vorhandenen Student aendern" klappt nach "DB neu laden" einmal mit Version 0, danach liefert dieselbe Version 412.
+  type: text/markdown

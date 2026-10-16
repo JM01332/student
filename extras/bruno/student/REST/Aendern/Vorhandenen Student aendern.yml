@@ -1,0 +1,42 @@
+info:
+  name: Vorhandenen Student aendern
+  type: http
+  seq: 1
+
+http:
+  method: PUT
+  url: "{{restUrl}}/:id"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: If-Match
+      value: '"0"'
+  params:
+    - name: id
+      value: "30"
+      type: path
+  body:
+    type: json
+    data: |-
+      {
+          "matrikelnummer": "111112",
+          "nachname": "Schmidt-Neu",
+          "vorname": "Lena",
+          "email": "lena.neu@h-ka.de"
+      }
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "204"
+    - expression: res.headers['etag']
+      operator: eq
+      value: '"1"'
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

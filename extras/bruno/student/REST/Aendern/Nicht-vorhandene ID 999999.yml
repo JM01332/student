@@ -1,0 +1,42 @@
+info:
+  name: Nicht-vorhandene ID 999999
+  type: http
+  seq: 5
+
+http:
+  method: PUT
+  url: "{{restUrl}}/:id"
+  headers:
+    - name: Content-Type
+      value: application/json
+    - name: If-Match
+      value: '"0"'
+  params:
+    - name: id
+      value: "999999"
+      type: path
+  body:
+    type: json
+    data: |-
+      {
+          "matrikelnummer": "111112",
+          "nachname": "Schmidt-Neu",
+          "vorname": "Lena",
+          "email": "lena.neu@h-ka.de"
+      }
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "404"
+    - expression: res.headers['content-type']
+      operator: eq
+      value: application/problem+json
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
