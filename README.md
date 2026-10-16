@@ -16,6 +16,8 @@ Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
   Antwort 201 mit `Location`-Header
 - `PUT /rest/{id}`: Studierenden ändern, nur mit passendem `If-Match`-Header;
   Antwort 204 mit neuem ETag
+- `DELETE /rest/{id}`: Studierenden mit Adresse und Prüfungsleistungen löschen,
+  Antwort 204
 - `GET /health/liveness` und `GET /health/readiness`: Server bzw. Server und
   Datenbank bereit
 - `QUERY /dev/db_populate`: Datenbank mit den Testdaten neu laden (nur im Dev-Modus)
@@ -31,7 +33,7 @@ SQLAlchemy, DTOs als Rückgabe des Service und Pydantic-Response-Models im Route
 Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
 `fastapi_app.py` macht daraus die HTTP-Antwort. Der Server läuft über HTTPS mit einem
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
-Geplant: DELETE, GraphQL, Keycloak und Docker.
+Geplant: GraphQL, Keycloak und Docker.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
 
@@ -149,11 +151,17 @@ selbstsigniert ist, unter *Preferences > General* die Option
 *SSL/TLS Certificate Verification* deaktivieren.
 
 Die Collection hat die Ordner *Dev*, *Hello*, *Health* und *REST* (mit *Suche mit ID*,
-*Suche mit Suchparameter*, *Neu anlegen* und *Aendern*); jeder Request enthält
+*Suche mit Suchparameter*, *Neu anlegen*, *Aendern* und *Loeschen*); jeder Request enthält
 Assertions (Statuscode, Header, Body). Mit dem Server im
 Hintergrund (`uv run python -m student`) lassen sich alle Requests über *Run* auf der
 Collection auf einmal ausführen. Die Variable `baseUrl` steht in
 `opencollection.yml`.
+
+Schreibende Requests verändern die Testdaten: „Neuer Student“, „Vorhandenen Student
+aendern“ und „Vorhandene ID 50 loeschen“ klappen jeweils nur einmal. Beim Ausführen
+einzelner Requests deshalb vorher im Ordner *Dev* „DB neu laden“ ausführen; sonst
+folgt z.B. 422 mit „Existierende Email“. Ein Lauf der ganzen Collection beginnt
+automatisch mit diesem Request.
 
 ## Tests und Codeprüfung
 
@@ -288,7 +296,8 @@ Unit-Tests mit Mocks, Integrationstests mit pytest und httpx sowie CI, Health-Ro
 und Fehlerbehandlung mit `NotFoundError` und ProblemDetails, Pydantic-Response-Models
 sowie ETag und `If-None-Match` für GET nach ID und ein Pydantic-Modell für
 die Suchparameter `nachname` und `email` sowie REST-Pagination mit `page` und `size`,
-POST mit Validierung und PUT mit `If-Match`.
+POST mit Validierung. Aus „Weitere Funktionalitäten“ sind PUT mit `If-Match`
+(Vermeidung von „Lost Updates“) und DELETE umgesetzt.
 
 `GET /rest/{id}` liefert die Version als ETag (z.B. `"0"`). Bei einem passenden
 `If-None-Match: "0"` antwortet der Server mit 304 ohne Body und mit ETag.
@@ -326,12 +335,18 @@ bleibt gleich. Die Antwort meldet trotzdem die um 1 erhöhte Version, da der Ser
 sie nach dem COMMIT selbst hochzählt. Ein folgendes PUT mit diesem ETag
 funktioniert, ein GET mit `If-None-Match` liefert dann aber 200 statt 304.
 
+`DELETE /rest/{id}` löscht den Studierenden; Adresse und Prüfungsleistungen werden
+über `cascade="save-update, delete"` in der Entity mitgelöscht. Der Server antwortet
+wie im Beispiel immer mit 204, auch wenn es die ID nicht gibt: DELETE ist
+idempotent, danach existiert der Datensatz in jedem Fall nicht. Wie POST und PUT
+wird DELETE später mit Keycloak auf bestimmte Rollen beschränkt.
+
 Im Dev-Modus lädt `QUERY /dev/db_populate` die Datenbank neu. Die Integrationstests
 rufen den Endpunkt vor jedem Testlauf auf, damit sie immer mit denselben Testdaten
 beginnen; in Bruno steht er als erster Request im Ordner *Dev*. Wie im Beispiel wird
 der Endpunkt später mit Keycloak auf die Rolle Admin beschränkt.
 
-**Offen, in dieser Reihenfolge:** DELETE, Keycloak, GraphQL,
+**Offen, in dieser Reihenfolge:** Keycloak, GraphQL,
 Docker sowie Dokumentation und Lasttests (siehe GitHub Project).
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
