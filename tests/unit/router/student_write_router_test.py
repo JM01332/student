@@ -1,4 +1,4 @@
-"""Unit-Tests für PUT mit If-Match ohne Datenbank."""
+"""Unit-Tests für PUT mit If-Match und DELETE ohne Datenbank."""
 
 import json
 from http import HTTPStatus
@@ -9,7 +9,7 @@ from fastapi import Request
 lazy from pytest_mock import MockerFixture
 
 from student.router.student_update_model import StudentUpdateModel
-from student.router.student_write_router import put
+from student.router.student_write_router import delete_by_id, put
 from student.service import StudentDTO, StudentWriteService, VersionOutdatedError
 
 STUDENT_ID = 1000
@@ -93,3 +93,12 @@ def test_put_version_veraltet(service: Mock, update_model: StudentUpdateModel) -
 
     with pytest.raises(VersionOutdatedError):
         put(STUDENT_ID, update_model, _request(f'"{VERSION - 1}"'), service)
+
+
+def test_delete(service: Mock) -> None:
+    """DELETE: 204 ohne Body; der Service bekommt die ID."""
+    response = delete_by_id(STUDENT_ID, service)
+
+    assert response.status_code == HTTPStatus.NO_CONTENT
+    assert response.body == b""
+    service.delete_by_id.assert_called_once_with(student_id=STUDENT_ID)

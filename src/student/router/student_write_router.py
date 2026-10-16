@@ -1,4 +1,4 @@
-"""StudentWriteRouter: Studierende anlegen und ändern."""
+"""StudentWriteRouter: Studierende anlegen, ändern und löschen."""
 
 from typing import Annotated, Final
 
@@ -105,3 +105,20 @@ def put(
         status_code=status.HTTP_204_NO_CONTENT,
         headers={ETAG: f'"{student_dto.version}"'},
     )
+
+
+@student_write_router.delete("/{student_id}")
+def delete_by_id(
+    student_id: int,
+    service: Annotated[StudentWriteService, Depends(get_write_service)],
+) -> Response:
+    """DELETE-Request, um einen Studierenden anhand seiner ID zu löschen.
+
+    :param student_id: ID des zu löschenden Studierenden als Pfadparameter
+    :param service: Injizierter Service zum Schreiben
+    :return: Response mit Statuscode 204, auch bei nicht vorhandener ID
+    :rtype: Response
+    """
+    logger.debug("student_id={}", student_id)
+    service.delete_by_id(student_id=student_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
