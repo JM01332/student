@@ -141,3 +141,82 @@ def test_count_ohne_treffer(mocker: MockerFixture, anzahl: int | None) -> None:
     result = StudentRepository().count(nachname=None, email=None, session=session)
 
     assert result == 0
+
+
+EIGENE_ID = 1000
+ANDERE_ID = 1001
+
+
+@pytest.mark.parametrize(
+    ("id_db", "erwartet"),
+    [(None, False), (EIGENE_ID, False), (ANDERE_ID, True)],
+)
+def test_exists_email_other_id(
+    mocker: MockerFixture, *, id_db: int | None, erwartet: bool
+) -> None:
+    """Nur die Emailadresse eines anderen Studierenden zählt als Konflikt."""
+    session = mocker.Mock(spec=Session)
+    session.scalar.return_value = id_db
+
+    result = StudentRepository().exists_email_other_id(
+        email="TEST@H-KA.DE", student_id=EIGENE_ID, session=session
+    )
+
+    assert result is erwartet
+    statement = session.scalar.call_args.args[0]
+    sql = str(
+        statement.compile(
+            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+        )
+    )
+    assert "SELECT student.id" in sql
+    assert "lower(student.email) = 'test@h-ka.de'" in sql
+
+
+@pytest.mark.parametrize(
+    ("id_db", "erwartet"),
+    [(None, False), (EIGENE_ID, False), (ANDERE_ID, True)],
+)
+def test_exists_matrikelnummer_other_id(
+    mocker: MockerFixture, *, id_db: int | None, erwartet: bool
+) -> None:
+    """Nur die Matrikelnummer eines anderen Studierenden zählt als Konflikt."""
+    session = mocker.Mock(spec=Session)
+    session.scalar.return_value = id_db
+
+    result = StudentRepository().exists_matrikelnummer_other_id(
+        matrikelnummer="123456", student_id=EIGENE_ID, session=session
+    )
+
+    assert result is erwartet
+    statement = session.scalar.call_args.args[0]
+    sql = str(
+        statement.compile(
+            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+        )
+    )
+    assert "SELECT student.id" in sql
+    assert "student.matrikelnummer = '123456'" in sql
+
+
+def test_update(mocker: MockerFixture) -> None:
+    """update() liefert den Studierenden per find_by_id aus der Session."""
+    session = mocker.Mock(spec=Session)
+    student = mocker.Mock(id=EIGENE_ID)
+    session.scalar.return_value = student
+
+    result = StudentRepository().update(student=student, session=session)
+
+    assert result is student
+    session.scalar.assert_called_once()
+
+
+def test_update_ohne_id(mocker: MockerFixture) -> None:
+    """Ohne ID gibt es nichts zu aktualisieren."""
+    session = mocker.Mock(spec=Session)
+    student = mocker.Mock(id=None)
+
+    result = StudentRepository().update(student=student, session=session)
+
+    assert result is None
+    session.scalar.assert_not_called()

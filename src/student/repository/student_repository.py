@@ -136,6 +136,69 @@ class StudentRepository:
         logger.debug("anzahl={}", anzahl)
         return anzahl is not None and anzahl > 0
 
+    def exists_email_other_id(
+        self,
+        email: str,
+        student_id: int,
+        session: Session,
+    ) -> bool:
+        """Abfrage, ob es die Emailadresse bei einem anderen Studierenden gibt.
+
+        :param email: Emailadresse, ohne Groß-/Kleinschreibung
+        :param student_id: ID des eigenen Studierenden, der ignoriert wird
+        :param session: Session für SQLAlchemy
+        :return: True, falls ein anderer Studierender die Emailadresse hat
+        :rtype: bool
+        """
+        logger.debug("email={}, student_id={}", email, student_id)
+        statement: Final = select(Student.id).where(
+            func.lower(Student.email) == email.lower(),
+        )
+        id_db: Final = session.scalar(statement)
+        logger.debug("id_db={}", id_db)
+        return id_db is not None and id_db != student_id
+
+    def exists_matrikelnummer_other_id(
+        self,
+        matrikelnummer: str,
+        student_id: int,
+        session: Session,
+    ) -> bool:
+        """Abfrage, ob es die Matrikelnummer bei einem anderen Studierenden gibt.
+
+        :param matrikelnummer: Matrikelnummer
+        :param student_id: ID des eigenen Studierenden, der ignoriert wird
+        :param session: Session für SQLAlchemy
+        :return: True, falls ein anderer Studierender die Matrikelnummer hat
+        :rtype: bool
+        """
+        logger.debug("matrikelnummer={}, student_id={}", matrikelnummer, student_id)
+        statement: Final = select(Student.id).where(
+            Student.matrikelnummer == matrikelnummer,
+        )
+        id_db: Final = session.scalar(statement)
+        logger.debug("id_db={}", id_db)
+        return id_db is not None and id_db != student_id
+
+    def update(self, student: Student, session: Session) -> Student | None:
+        """Einen bereits geänderten Studierenden aus der Session zurückliefern.
+
+        Die Änderungen wurden zuvor mit `Student.set()` am geladenen Objekt gemacht.
+        SQLAlchemy schreibt sie beim COMMIT per UPDATE und erhöht dabei die Version.
+
+        :param student: Der geänderte Studierende mit ID
+        :param session: Session für SQLAlchemy
+        :return: Der Studierende oder None, falls es die ID nicht (mehr) gibt
+        :rtype: Student | None
+        """
+        logger.debug("{}", student)
+        if student.id is None:
+            return None
+        # session.add() ist nicht nötig: Das Objekt wurde in dieser Session geladen
+        student_db: Final = self.find_by_id(student_id=student.id, session=session)
+        logger.debug("{}", student_db)
+        return student_db
+
     def create(self, student: Student, session: Session) -> Student:
         """Einen neuen Studierenden mit Adresse und Prüfungsleistungen speichern.
 

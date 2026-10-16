@@ -1,6 +1,6 @@
 """Entity-Klasse für Studierendendaten."""
 
-from typing import override
+from typing import Self, override
 lazy from datetime import datetime
 
 from sqlalchemy import Identity, func
@@ -67,6 +67,19 @@ class Student(Base):
     """Die Versionsnummer für optimistische Synchronisation."""
 
     __mapper_args__ = {"version_id_col": version}  # ruff: ignore[mutable-class-default]
+
+    def set(self, student: Self) -> None:
+        """Einfache Attributwerte überschreiben, z.B. vor einem DB-Update.
+
+        Übernimmt wie im Beispielprojekt die Pflichtfelder aus dem Update-Model.
+        ID, Version, Benutzername, Adresse und Prüfungsleistungen bleiben unverändert.
+
+        :param student: Student-Objekt mit den neuen Daten
+        """
+        self.matrikelnummer = student.matrikelnummer
+        self.nachname = student.nachname
+        self.vorname = student.vorname
+        self.email = student.email
 
     @override
     def __eq__(self, other: object) -> bool:
