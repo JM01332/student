@@ -14,6 +14,8 @@ Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
   ohne Parameter die erste Seite mit bis zu fünf Studierenden
 - `POST /rest`: neuen Studierenden mit Adresse und Prüfungsleistungen anlegen,
   Antwort 201 mit `Location`-Header
+- `PUT /rest/{id}`: Studierenden ändern, nur mit passendem `If-Match`-Header;
+  Antwort 204 mit neuem ETag
 - `GET /health/liveness` und `GET /health/readiness`: Server bzw. Server und
   Datenbank bereit
 - `QUERY /dev/db_populate`: Datenbank mit den Testdaten neu laden (nur im Dev-Modus)
@@ -29,7 +31,7 @@ SQLAlchemy, DTOs als Rückgabe des Service und Pydantic-Response-Models im Route
 Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
 `fastapi_app.py` macht daraus die HTTP-Antwort. Der Server läuft über HTTPS mit einem
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
-Geplant: PUT, DELETE, GraphQL, Keycloak und Docker.
+Geplant: DELETE, GraphQL, Keycloak und Docker.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
 
@@ -146,7 +148,8 @@ FastAPI-Beispiel). In Bruno (`C:\Zimmermann\Bruno\Bruno.exe`) über
 selbstsigniert ist, unter *Preferences > General* die Option
 *SSL/TLS Certificate Verification* deaktivieren.
 
-Die Collection hat die Ordner *Dev*, *Hello*, *Health* und *REST*; jeder Request enthält
+Die Collection hat die Ordner *Dev*, *Hello*, *Health* und *REST* (mit *Suche mit ID*,
+*Suche mit Suchparameter*, *Neu anlegen* und *Aendern*); jeder Request enthält
 Assertions (Statuscode, Header, Body). Mit dem Server im
 Hintergrund (`uv run python -m student`) lassen sich alle Requests über *Run* auf der
 Collection auf einmal ausführen. Die Variable `baseUrl` steht in
@@ -268,11 +271,8 @@ geprüft. Bekannte Fehlalarme stehen mit Begründung in
 
 ## Zusammenarbeit
 
-Vorläufige Aufteilung für zwei Personen; die Zuordnung ist noch offen:
-
-- Person A: Datenmodell, Repository, Services und Unit-Tests.
-- Person B: REST, GraphQL, Security und Integrationstests.
-- Gemeinsam: Schnittstellen, Konfiguration, CI und Dokumentation.
+Die Aufgaben werden als Issues im
+[GitHub Project](https://github.com/users/JM01332/projects/1) geplant und verteilt.
 
 Gearbeitet wird nach der `VORGEHENSWEISE.md` aus dem FastAPI-Beispiel.
 Abgeschlossen sind die Abschnitte „Elementare Infrastruktur und einfacher Server“
@@ -287,7 +287,8 @@ und PostgreSQL einschließlich Fetch-Join, Neuladen der DB im Dev-Modus, Bruno,
 Unit-Tests mit Mocks, Integrationstests mit pytest und httpx sowie CI, Health-Router
 und Fehlerbehandlung mit `NotFoundError` und ProblemDetails, Pydantic-Response-Models
 sowie ETag und `If-None-Match` für GET nach ID und ein Pydantic-Modell für
-die Suchparameter `nachname` und `email` sowie REST-Pagination mit `page` und `size`.
+die Suchparameter `nachname` und `email` sowie REST-Pagination mit `page` und `size`,
+POST mit Validierung und PUT mit `If-Match`.
 
 `GET /rest/{id}` liefert die Version als ETag (z.B. `"0"`). Bei einem passenden
 `If-None-Match: "0"` antwortet der Server mit 304 ohne Body und mit ETag.
@@ -305,12 +306,32 @@ PLZ mit 5 Ziffern, nur zulässige Notenstufen und Semester wie `WS 2026/27` oder
 vorhandene Email oder Matrikelnummer HTTP 422 mit ProblemDetails. Bei Erfolg antwortet
 der Server mit 201 ohne Body und dem `Location`-Header zum neuen Datensatz.
 
+`PUT /rest/{id}` ändert Matrikelnummer, Nachname, Vorname und Email
+(`router/student_update_model.py`); Adresse und Prüfungsleistungen bleiben
+unverändert. Der Client schickt die gelesene Version als `If-Match: "0"` mit
+(optimistische Synchronisation):
+
+- ohne `If-Match`: 428 Precondition Required
+- `If-Match` ohne Anführungszeichen oder ohne Zahl: 412 Precondition Failed
+- veraltete Version, weil inzwischen jemand anderes geändert hat: 412 mit
+  „Veraltete Version: …“
+- nicht vorhandene ID: 404; Email oder Matrikelnummer eines anderen
+  Studierenden bzw. ungültige Daten: 422
+- Erfolg: 204 ohne Body mit dem neuen ETag, z.B. `"1"`
+
+Alle Fehler kommen als ProblemDetails (bis auf die Validierungsfehler von
+Pydantic). Bekannte Einschränkung wie im Beispiel: Schickt ein PUT genau die
+gespeicherten Daten, führt SQLAlchemy kein UPDATE aus und die Version in der DB
+bleibt gleich. Die Antwort meldet trotzdem die um 1 erhöhte Version, da der Service
+sie nach dem COMMIT selbst hochzählt. Ein folgendes PUT mit diesem ETag
+funktioniert, ein GET mit `If-None-Match` liefert dann aber 200 statt 304.
+
 Im Dev-Modus lädt `QUERY /dev/db_populate` die Datenbank neu. Die Integrationstests
 rufen den Endpunkt vor jedem Testlauf auf, damit sie immer mit denselben Testdaten
 beginnen; in Bruno steht er als erster Request im Ordner *Dev*. Wie im Beispiel wird
 der Endpunkt später mit Keycloak auf die Rolle Admin beschränkt.
 
-**Offen, in dieser Reihenfolge:** PUT mit `If-Match`, DELETE, Keycloak, GraphQL,
+**Offen, in dieser Reihenfolge:** DELETE, Keycloak, GraphQL,
 Docker sowie Dokumentation und Lasttests (siehe GitHub Project).
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
