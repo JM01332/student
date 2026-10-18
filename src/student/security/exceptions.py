@@ -2,7 +2,7 @@
 
 
 class AuthorizationError(Exception):
-    """Exception, falls ein Token oder seine benötigten Claims ungültig sind."""
+    """Exception bei fehlendem/ungültigem Bearer-Header, Token oder Claims."""
 
 
 class LoginError(Exception):

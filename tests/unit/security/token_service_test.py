@@ -3,6 +3,7 @@
 lazy from unittest.mock import Mock
 
 import pytest
+from fastapi import Request
 from jwcrypto.common import JWException
 from keycloak import KeycloakAuthenticationError, KeycloakOperationError
 lazy from pytest_mock import MockerFixture
@@ -190,3 +191,62 @@ def test_invalid_decoded_token(client_factory: Mock) -> None:
     with pytest.raises(AuthorizationError) as error:
         TokenService().get_user_from_token("test-access")
     assert isinstance(error.value.__cause__, TypeError)
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        "Bearer test-access",
+        "bearer test-access",
+        "BEARER test-access",
+        "bEaReR test-access",
+        "  Bearer   test-access  ",
+        "Bearer\ttest-access",
+    ],
+)
+@pytest.mark.usefixtures("claims")
+def test_user_from_request(client_factory: Mock, header: str) -> None:
+    request = Request({
+        "type": "http",
+        "headers": [(b"authorization", header.encode("ascii"))],
+    })
+    user = TokenService().get_user_from_request(request)
+    assert user.username == "student"
+    assert user.email == "student@example.com"
+    assert user.roles == [Role.STUDENT]
+    client_factory.return_value.decode_token.assert_called_once_with(token=TEST_ACCESS)
+
+
+@pytest.mark.parametrize(
+    "header",
+    [
+        None,
+        "",
+        "   ",
+        "Bearer",
+        "Bearer   ",
+        "test-access",
+        "Basic test-access",
+        "Bearer test-access extra",
+        "Bearertest-access",
+    ],
+)
+def test_invalid_authorization_header(client_factory: Mock, header: str | None) -> None:
+    headers = [] if header is None else [(b"authorization", header.encode("ascii"))]
+    request = Request({"type": "http", "headers": headers})
+    with pytest.raises(AuthorizationError):
+        TokenService().get_user_from_request(request)
+    client_factory.return_value.decode_token.assert_not_called()
+
+
+def test_request_with_invalid_token(client_factory: Mock) -> None:
+    original = JWException("Invalid token")
+    client_factory.return_value.decode_token.side_effect = original
+    request = Request({
+        "type": "http",
+        "headers": [(b"authorization", b"Bearer test-access")],
+    })
+    with pytest.raises(AuthorizationError) as error:
+        TokenService().get_user_from_request(request)
+    assert error.value.__cause__ is original
+    client_factory.return_value.decode_token.assert_called_once_with(token=TEST_ACCESS)

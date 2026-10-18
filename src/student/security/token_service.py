@@ -5,6 +5,7 @@ lazy from collections.abc import Mapping
 
 from jwcrypto.common import JWException
 from keycloak import KeycloakAuthenticationError, KeycloakOpenID, KeycloakOperationError
+lazy from fastapi import Request
 
 from student.config import keycloak_config
 from student.security.exceptions import AuthorizationError, LoginError
@@ -40,6 +41,28 @@ class TokenService:
             return self.keycloak.token(username, password)
         except (KeycloakAuthenticationError, KeycloakOperationError) as err:
             raise LoginError(username=username) from err
+
+    def _get_token_from_request(self, request: Request) -> str:
+        """Bearer-Token aus dem Authorization-Header wie im Beispiel extrahieren."""
+        authorization_header = request.headers.get("Authorization")
+        if authorization_header is None:
+            raise AuthorizationError
+        try:
+            authorization_scheme, bearer_token = authorization_header.split()
+        except ValueError as err:
+            raise AuthorizationError from err
+        if authorization_scheme.lower() != "bearer":
+            raise AuthorizationError
+        return bearer_token
+
+    def get_user_from_request(self, request: Request) -> User:
+        """Bearer-Header auswerten und den Benutzer aus dem Token ermitteln.
+
+        Fehlende oder syntaktisch ungültige Header ergeben AuthorizationError.
+        Header, Tokens und Benutzerdaten werden nicht protokolliert.
+        """
+        bearer_token = self._get_token_from_request(request)
+        return self.get_user_from_token(token=bearer_token)
 
     def get_user_from_token(self, token: str) -> User:
         """Token prüfen und Benutzer mit Client-Rollen wie im Beispiel ermitteln.

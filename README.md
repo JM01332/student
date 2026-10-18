@@ -186,8 +186,14 @@ die Rollen des konfigurierten Clients in `User`. JWT-Fehler (`JWException`) und
 Auswertungsfehler (`KeyError`, `TypeError`, `ValueError`) ergeben `AuthorizationError`.
 Unbekannte Rollen werden wie im Beispiel abgelehnt; eine leere Rollenliste ist
 zulässig. Tokens und decodierte Benutzerdaten werden nicht protokolliert.
-Als nächstes folgt die Bearer-Header-Auswertung; bisher gibt es keinen
-Login-Endpunkt oder REST-Zugriffsschutz.
+`TokenService.get_user_from_request()` liest den `Authorization`-Header und
+übergibt den enthaltenen Bearer-Token an die bestehende Token-Auswertung.
+Das Schema wird unabhängig von Groß-/Kleinschreibung erkannt; Whitespace wird
+wie im Beispiel mit `split()` behandelt. Fehlende Header, ein anderes Schema
+oder eine von zwei abweichende Anzahl Bestandteile ergeben `AuthorizationError`.
+Auch Authorization-Header werden nicht protokolliert.
+Als nächstes bietet sich der Login-Endpunkt als eigenes kleines Paket an;
+bisher gibt es keinen Login-Endpunkt oder REST-Zugriffsschutz.
 
 ## Manuelle Tests mit Bruno
 
