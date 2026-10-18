@@ -44,7 +44,10 @@ def post(
     )
 
 
-@student_write_router.put("/{student_id}")
+@student_write_router.put(
+    "/{student_id}",
+    dependencies=[Depends(RolesRequired([Role.ADMIN, Role.STUDENT]))],
+)
 def put(
     student_id: int,
     student_update_model: StudentUpdateModel,

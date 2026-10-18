@@ -36,7 +36,7 @@ Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
 `fastapi_app.py` macht daraus die HTTP-Antwort. Der Server läuft über HTTPS mit einem
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
 Die Keycloak-Anbindung einschließlich Login und Rollenschutz für lesende REST-Endpunkte
-sowie POST ist vorhanden; Rollenschutz für PUT und DELETE, GraphQL und ein Docker-Image
+sowie POST und PUT ist vorhanden; Rollenschutz für DELETE, GraphQL und ein Docker-Image
 der Anwendung sind noch geplant.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
@@ -98,7 +98,7 @@ neu starten, da Uvicorn geänderten Code nicht automatisch lädt.
 Endpunkte: <https://127.0.0.1:8000/rest/1>, <https://127.0.0.1:8000/rest> und
 <https://127.0.0.1:8000/rest?nachname=muster>. Da das Zertifikat
 selbstsigniert ist, zeigt der Browser beim ersten Aufruf eine Warnung, die man für
-die Entwicklung bestätigt. REST-Lesezugriffe und POST benötigen zusätzlich einen
+die Entwicklung bestätigt. REST-Lesezugriffe, POST und PUT benötigen zusätzlich einen
 Bearer-Token; ein direkter Browseraufruf ohne Authorization-Header ergibt 401.
 
 Jede Response enthält Security-Header (HSTS, `nosniff`, `X-Frame-Options`,
@@ -163,7 +163,7 @@ Der lokale Realm `student` mit Client `student-client`, den Client-Rollen
 enthält die Einrichtungsschritte und einen Prüfaufruf für Discovery,
 Token-Ausstellung und Rollen. Das Client Secret liegt ausschließlich in der
 lokalen `.env` (Vorlage: `.env.example`). Die OIDC-Anbindung der Anwendung ist
-vorhanden; lesende REST-Endpunkte und POST prüfen bereits Bearer-Token und Rollen.
+vorhanden; lesende REST-Endpunkte, POST und PUT prüfen bereits Bearer-Token und Rollen.
 
 Die Anwendung stellt bereits `keycloak_config` mit diesen Verbindungsdaten bereit.
 `CLIENT_SECRET` wird aus der Prozessumgebung gelesen, ersatzweise aus `.env` im
@@ -216,6 +216,7 @@ Folgende REST-Endpunkte verlangen einen gültigen Bearer-Token:
 
 - `GET /rest/{id}`: Rolle `admin` oder `student`
 - `GET /rest`: Rolle `admin`
+- `PUT /rest/{id}`: Rolle `admin` oder `student`
 - `POST /rest`: Rolle `admin` (abweichend vom ungeschützten POST im Beispiel)
 
 Fehlende oder ungültige Authentifizierung ergibt 401, eine fehlende Rolle 403.
@@ -224,8 +225,10 @@ Auch eine Antwort mit 304 setzt erfolgreichen Datensatzzugriff voraus.
 Datensatz lesen, `student` nur bei exakt übereinstimmendem `username`. Fremde
 und nicht vorhandene IDs ergeben für `student` gleichermaßen 403 mit
 ProblemDetails; für `admin` bleibt eine unbekannte ID bei 404.
-Als nächstes kleines Paket ist der REST-Rollenschutz für PUT vorgesehen.
-PUT, DELETE und der Dev-Endpunkt sind weiterhin ungeschützt.
+PUT prüft wie im Beispiel ausschließlich die Rolle, nicht den Datensatzbesitz:
+Auch `student` kann fremde Datensätze ändern.
+Als nächstes kleines Paket ist der REST-Rollenschutz für DELETE vorgesehen.
+DELETE und der Dev-Endpunkt sind weiterhin ungeschützt.
 
 ## Manuelle Tests mit Bruno
 
@@ -247,7 +250,7 @@ laufen; `CLIENT_SECRET` muss für die Anwendung gesetzt sein.
    Bruno speichert Secret-Werte lokal außerhalb der Collection.
 3. Unter *REST > Token* den Request *Token als admin* ausführen. Er ruft
    `QUERY /auth/token` auf und übernimmt bei Erfolg `token` als Laufzeitvariable
-   `accessToken`. Die vorhandenen REST-GET- und POST-Requests verwenden diese
+   `accessToken`. Die vorhandenen REST-GET-, POST- und PUT-Requests verwenden diese
    automatisch im Bearer-Header. Vor jedem Login wird der bisherige Laufzeitwert geleert,
    damit ein fehlgeschlagener Login keinen alten Token weiterverwendet.
 4. Danach einzelne REST-Requests ausführen. Nach Ablauf des Tokens (30 Minuten)
@@ -427,7 +430,8 @@ PLZ mit 5 Ziffern, nur zulässige Notenstufen und Semester wie `WS 2026/27` oder
 vorhandene Email oder Matrikelnummer HTTP 422 mit ProblemDetails. Bei Erfolg antwortet
 der Server mit 201 ohne Body und dem `Location`-Header zum neuen Datensatz.
 
-`PUT /rest/{id}` ändert Matrikelnummer, Nachname, Vorname und Email
+`PUT /rest/{id}` ändert mit der Rolle `admin` oder `student` Matrikelnummer,
+Nachname, Vorname und Email
 (`router/student_update_model.py`); Adresse und Prüfungsleistungen bleiben
 unverändert. Der Client schickt die gelesene Version als `If-Match: "0"` mit
 (optimistische Synchronisation):
@@ -450,8 +454,8 @@ funktioniert, ein GET mit `If-None-Match` liefert dann aber 200 statt 304.
 `DELETE /rest/{id}` löscht den Studierenden; Adresse und Prüfungsleistungen werden
 über `cascade="save-update, delete"` in der Entity mitgelöscht. Der Server antwortet
 wie im Beispiel immer mit 204, auch wenn es die ID nicht gibt: DELETE ist
-idempotent, danach existiert der Datensatz in jedem Fall nicht. Wie PUT
-wird DELETE später mit Keycloak auf bestimmte Rollen beschränkt.
+idempotent, danach existiert der Datensatz in jedem Fall nicht.
+DELETE wird später mit Keycloak auf bestimmte Rollen beschränkt.
 
 Im Dev-Modus lädt `QUERY /dev/db_populate` die Datenbank neu. Die Integrationstests
 rufen den Endpunkt vor jedem Testlauf auf, damit sie immer mit denselben Testdaten

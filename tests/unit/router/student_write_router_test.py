@@ -213,3 +213,100 @@ def test_post_invalid_data(
     response = _post(app, authorization, {})
     assert response.status_code == expected
     assert service.mock_calls == []
+
+
+def _put(
+    app: FastAPI,
+    authorization: str | None,
+    payload: dict[str, object],
+    if_match: str | None = '"3"',
+) -> httpx.Response:
+    """PUT durch den produktiven Router mit optionalen Auth- und Versionsheadern."""
+    headers = {} if authorization is None else {"Authorization": authorization}
+    if if_match is not None:
+        headers["If-Match"] = if_match
+
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="https://test"
+        ) as client:
+            return await client.put(
+                f"/rest/{STUDENT_ID}", headers=headers, json=payload
+            )
+
+    return asyncio.run(send())
+
+
+@pytest.mark.parametrize("if_match", [None, "invalid", '"3"'])
+@pytest.mark.parametrize(
+    "authorization", [None, "Basic admin", "Bearer", "Bearer invalid", "Bearer none"]
+)
+def test_put_requires_role_before_if_match(
+    app: FastAPI,
+    service: Mock,
+    update_model: StudentUpdateModel,
+    authorization: str | None,
+    if_match: str | None,
+) -> None:
+    response = _put(app, authorization, update_model.model_dump(), if_match)
+    expected = (
+        HTTPStatus.FORBIDDEN
+        if authorization == "Bearer none"
+        else HTTPStatus.UNAUTHORIZED
+    )
+    assert response.status_code == expected
+    if expected == HTTPStatus.UNAUTHORIZED:
+        assert response.headers["content-type"] == "application/problem+json"
+    assert service.mock_calls == []
+
+
+@pytest.mark.parametrize("role", ["admin", "student"])
+def test_put_authorized(
+    app: FastAPI, service: Mock, update_model: StudentUpdateModel, role: str
+) -> None:
+    response = _put(app, f"Bearer {role}", update_model.model_dump())
+    assert response.status_code == HTTPStatus.NO_CONTENT
+    assert response.content == b""
+    assert response.headers["etag"] == f'"{NEUE_VERSION}"'
+    service.update.assert_called_once()
+    kwargs = service.update.call_args.kwargs
+    assert kwargs["student_id"] == STUDENT_ID
+    assert kwargs["version"] == VERSION
+    assert kwargs["student"].email == update_model.email
+
+
+@pytest.mark.parametrize("role", ["admin", "student"])
+@pytest.mark.parametrize("if_match", [None, "invalid"])
+def test_put_authorized_requires_if_match(
+    app: FastAPI,
+    service: Mock,
+    update_model: StudentUpdateModel,
+    role: str,
+    if_match: str | None,
+) -> None:
+    response = _put(app, f"Bearer {role}", update_model.model_dump(), if_match)
+    expected = (
+        HTTPStatus.PRECONDITION_REQUIRED
+        if if_match is None
+        else HTTPStatus.PRECONDITION_FAILED
+    )
+    assert response.status_code == expected
+    assert response.headers["content-type"] == "application/problem+json"
+    assert service.mock_calls == []
+
+
+@pytest.mark.parametrize(
+    ("authorization", "expected"),
+    [
+        (None, HTTPStatus.UNAUTHORIZED),
+        ("Bearer none", HTTPStatus.FORBIDDEN),
+        ("Bearer admin", HTTPStatus.UNPROCESSABLE_CONTENT),
+        ("Bearer student", HTTPStatus.UNPROCESSABLE_CONTENT),
+    ],
+)
+def test_put_invalid_data(
+    app: FastAPI, service: Mock, authorization: str | None, expected: HTTPStatus
+) -> None:
+    response = _put(app, authorization, {})
+    assert response.status_code == expected
+    assert service.mock_calls == []
