@@ -8,14 +8,18 @@ from loguru import logger
 
 from student.config.dev.db_populate import DbPopulateService, get_db_populate_service
 from student.problem_details import ProblemDetails
+from student.security import Role, RolesRequired
 
 __all__ = ["router"]
 
 router: Final = APIRouter(tags=["Admin"])
 
 
-# TODO Mit Keycloak (#39) wie im Beispielprojekt nur für die Rolle Admin freigeben
-@router.api_route(path="/db_populate", methods=["QUERY"])
+@router.api_route(
+    path="/db_populate",
+    methods=["QUERY"],
+    dependencies=[Depends(RolesRequired(Role.ADMIN))],
+)
 async def populate(
     request: Request,
     service: Annotated[DbPopulateService, Depends(get_db_populate_service)],

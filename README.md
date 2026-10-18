@@ -20,7 +20,7 @@ Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
   Antwort 204
 - `GET /health/liveness` und `GET /health/readiness`: Server bzw. Server und
   Datenbank bereit
-- `QUERY /dev/db_populate`: Datenbank mit den Testdaten neu laden (nur im Dev-Modus)
+- `QUERY /dev/db_populate`: Datenbank mit den Testdaten neu laden (nur im Dev-Modus, Rolle `admin`)
 - `GET /hello/`: Demo-Endpunkt
 - `QUERY /auth/token`: Login mit JSON-Feldern `username` und `password`;
   Antwort mit `token`, `expires_in` und `rollen`
@@ -36,7 +36,7 @@ Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
 `fastapi_app.py` macht daraus die HTTP-Antwort. Der Server läuft über HTTPS mit einem
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
 Die Keycloak-Anbindung einschließlich Login und Rollenschutz für lesende REST-Endpunkte
-sowie POST, PUT und DELETE ist vorhanden; GraphQL und ein Docker-Image
+sowie POST, PUT, DELETE und DB-Neuladen ist vorhanden; GraphQL und ein Docker-Image
 der Anwendung sind noch geplant.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
@@ -219,6 +219,7 @@ Folgende REST-Endpunkte verlangen einen gültigen Bearer-Token:
 - `PUT /rest/{id}`: Rolle `admin` oder `student`
 - `DELETE /rest/{id}`: Rolle `admin` oder `student`
 - `POST /rest`: Rolle `admin` (abweichend vom ungeschützten POST im Beispiel)
+- `QUERY /dev/db_populate`: Rolle `admin` (nur im Dev-Modus)
 
 Fehlende oder ungültige Authentifizierung ergibt 401, eine fehlende Rolle 403.
 Auch eine Antwort mit 304 setzt erfolgreichen Datensatzzugriff voraus.
@@ -228,8 +229,9 @@ und nicht vorhandene IDs ergeben für `student` gleichermaßen 403 mit
 ProblemDetails; für `admin` bleibt eine unbekannte ID bei 404.
 PUT und DELETE prüfen wie im Beispiel ausschließlich die Rolle, nicht den Datensatzbesitz:
 Auch `student` kann fremde Datensätze ändern und löschen.
-Als nächstes kleines Paket ist der ADMIN-Rollenschutz für den Dev-Endpunkt
-`QUERY /dev/db_populate` vorgesehen. Dieser ist weiterhin ungeschützt.
+Der Dev-Endpunkt prüft die Adminrolle vor der Body-Prüfung und dem DB-Neuladen.
+Ein nicht-leerer Body ergibt für ADMIN weiterhin 400. Das automatische Laden
+der Testdaten beim App-Start im Dev-Modus bleibt unverändert.
 
 ## Manuelle Tests mit Bruno
 
@@ -239,7 +241,7 @@ FastAPI-Beispiel). In Bruno (`C:\Zimmermann\Bruno\Bruno.exe`) über
 selbstsigniert ist, unter *Preferences > General* die Option
 *SSL/TLS Certificate Verification* deaktivieren.
 
-Die Collection hat die Ordner *Dev*, *Hello*, *Health* und *REST* (mit *Token*,
+Die Collection hat die Ordner *Token*, *Dev*, *Hello*, *Health* und *REST* (mit
 *Suche mit ID*, *Suche mit Suchparameter*, *Neu anlegen*, *Aendern* und *Loeschen*).
 Für den Login müssen PostgreSQL, Keycloak mit Student-Realm und die Anwendung
 laufen; `CLIENT_SECRET` muss für die Anwendung gesetzt sein.
@@ -249,32 +251,39 @@ laufen; `CLIENT_SECRET` muss für die Anwendung gesetzt sein.
 2. Im Environment das Passwort des lokalen Keycloak-Benutzers `admin` bei
    `password` eintragen, die Markierung *Secret* beibehalten und *Save* wählen.
    Bruno speichert Secret-Werte lokal außerhalb der Collection.
-3. Unter *REST > Token* den Request *Token als admin* ausführen. Er ruft
+3. Im Collection-Runner den Request *Token > Token als admin* zuerst einordnen. Er ruft
    `QUERY /auth/token` auf und übernimmt bei Erfolg `token` als Laufzeitvariable
-   `accessToken`. Die vorhandenen REST-GET-, POST-, PUT- und DELETE-Requests verwenden diese
-   automatisch im Bearer-Header. Vor jedem Login wird der bisherige Laufzeitwert geleert,
+   `accessToken`. Der Dev-Request und die REST-GET-, POST-, PUT- und
+   DELETE-Requests verwenden diese automatisch im Bearer-Header. Vor jedem Login wird der bisherige Laufzeitwert geleert,
    damit ein fehlgeschlagener Login keinen alten Token weiterverwendet.
-4. Danach einzelne REST-Requests ausführen. Nach Ablauf des Tokens (30 Minuten)
+4. Dev- und REST-Requests im selben Lauf nach dem Login ausführen. Nach Ablauf des Tokens (30 Minuten)
    oder nach einem Bruno-Neustart erneut einloggen. Tokens nicht als feste
    Collection- oder Environment-Werte speichern.
 
 Bei *Run* auf der ganzen Collection zuerst das Environment *student* auswählen.
 Die Requests müssen nacheinander in der gespeicherten Reihenfolge laufen, nicht
-parallel. Beim Lauf nur des REST-Ordners vorher unter *Dev* die Datenbank neu laden.
+parallel. Beim vollständigen Collection-Run ist kein manuelles Umordnen nötig.
+Für einen Teillauf Login und gewünschte Folge-Requests gemeinsam auswählen;
+Login muss vor DB-Neuladen und den REST-Tests ausgeführt werden. Die
+Token-Weitergabe zwischen separaten Einzelausführungen ist noch nicht geklärt.
 Alle HTTP-Requests haben collectionweit eindeutige Sequenznummern (1–33).
 Damit ergibt sowohl die Sortierung innerhalb der Ordner als auch die Sortierung
 einer flachen Request-Liste dieselbe Reihenfolge. Neue Requests entsprechend
 einsortieren und die nachfolgenden Sequenznummern anpassen.
-Der Lauf der ganzen Collection lädt zunächst die Datenbank neu und führt innerhalb von *REST* den Login
-vor den Lese- und Schreibtests aus. Die Variable `baseUrl` steht weiterhin in
-`opencollection.yml`. Für den Login über die Anwendung wird kein Client Secret
+Die Auswahlliste des VS-Code-Runners kann eine abweichende Reihenfolge anzeigen;
+sie entspricht beim vollständigen Collection-Run nicht der Ausführungsreihenfolge.
+Die Ausführung erfolgt in der vorgesehenen Reihenfolge: Token, Dev, Hello,
+Health, REST (Lesen/Suche, POST, PUT, DELETE; Lesen der gelöschten ID nach DELETE).
+Der Lauf der ganzen Collection führt zuerst den Login unter *Token*, danach
+das DB-Neuladen unter *Dev* und anschließend die übrigen Tests aus. Die Variable
+`baseUrl` steht weiterhin in `opencollection.yml`. Für den Login über die Anwendung wird kein Client Secret
 in Bruno benötigt.
 
 Schreibende Requests verändern die Testdaten: „Neuer Student“, „Vorhandenen Student
 aendern“ und „Vorhandene ID 50 loeschen“ klappen jeweils nur einmal. Beim Ausführen
-einzelner Requests deshalb vorher im Ordner *Dev* „DB neu laden“ ausführen; sonst
+einzelner Schreibtests deshalb Login und „DB neu laden“ im selben Lauf davor einordnen; sonst
 folgt z.B. 422 mit „Existierende Email“. Ein Lauf der ganzen Collection beginnt
-automatisch mit diesem Request.
+mit dem Login und anschließend diesem Request.
 
 ## Tests und Codeprüfung
 
@@ -457,12 +466,12 @@ Adresse und Prüfungsleistungen werden über `cascade="save-update, delete"` in 
 wie im Beispiel immer mit 204, auch wenn es die ID nicht gibt: DELETE ist
 idempotent, danach existiert der Datensatz in jedem Fall nicht.
 
-Im Dev-Modus lädt `QUERY /dev/db_populate` die Datenbank neu. Die Integrationstests
-rufen den Endpunkt vor jedem Testlauf auf, damit sie immer mit denselben Testdaten
-beginnen; in Bruno steht er als erster Request im Ordner *Dev*. Wie im Beispiel wird
-der Endpunkt später mit Keycloak auf die Rolle Admin beschränkt.
+Im Dev-Modus lädt `QUERY /dev/db_populate` mit einem Admin-Bearer-Token die
+Datenbank neu. Die Integrationstests rufen den Endpunkt vor jedem Testlauf auf, damit sie immer mit denselben Testdaten
+beginnen; in Bruno steht er im Ordner *Dev* nach dem Login im Ordner *Token*.
+Wie im Beispiel ist der Endpunkt auf die Rolle Admin beschränkt.
 
-**Offen, in dieser Reihenfolge:** Keycloak, GraphQL,
+**Offen, in dieser Reihenfolge:** GraphQL,
 Docker sowie Dokumentation und Lasttests (siehe GitHub Project).
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
