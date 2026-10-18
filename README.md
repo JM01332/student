@@ -176,7 +176,11 @@ unverändert zurück. Fehlende Zugangsdaten (`None`) und die Keycloak-Fehler
 Leere Zeichenketten und ein fehlendes Client Secret werden beim Token-Aufruf
 durch Keycloak geprüft. Passwörter und Tokens werden nicht protokolliert.
 Die Unit-Tests ersetzen den OIDC-Client durch Mocks und benötigen keinen Server.
-Als nächstes folgen `decode_token` mit Benutzer-/Rollenmodellen und anschließend
+Die Security-Modelle `User` und `Role` sind als Grundlage für die Token-Auswertung
+vorhanden. `User` enthält Benutzername, Email, Vorname, Nachname und Rollen;
+das optionale Passwort ist von der Objektdarstellung ausgeschlossen. `Role`
+definiert `ADMIN` und `STUDENT`, passend zu den Keycloak-Client-Rollen.
+Als nächstes folgt `get_user_from_token()` mit `decode_token` und anschließend
 die REST-Anbindung; bisher gibt es keinen Login-Endpunkt oder REST-Zugriffsschutz.
 
 ## Manuelle Tests mit Bruno
