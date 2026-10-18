@@ -22,6 +22,8 @@ Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
   Datenbank bereit
 - `QUERY /dev/db_populate`: Datenbank mit den Testdaten neu laden (nur im Dev-Modus)
 - `GET /hello/`: Demo-Endpunkt
+- `QUERY /auth/token`: Login mit JSON-Feldern `username` und `password`;
+  Antwort mit `token`, `expires_in` und `rollen`
 
 Wird nichts gefunden, antwortet der Server mit 404 im Format ProblemDetails
 (`application/problem+json`, z.B. `{"title": "Not Found", "status_code": 404, ...}`).
@@ -33,7 +35,7 @@ SQLAlchemy, DTOs als Rückgabe des Service und Pydantic-Response-Models im Route
 Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
 `fastapi_app.py` macht daraus die HTTP-Antwort. Der Server läuft über HTTPS mit einem
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
-Die Keycloak-Compose-/TLS-Konfiguration ist vorbereitet; die OIDC-Anbindung,
+Die Keycloak-Anbindung einschließlich Login ist vorhanden; REST-Rollenschutz,
 GraphQL und ein Docker-Image der Anwendung sind noch geplant.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
@@ -192,8 +194,18 @@ Das Schema wird unabhängig von Groß-/Kleinschreibung erkannt; Whitespace wird
 wie im Beispiel mit `split()` behandelt. Fehlende Header, ein anderes Schema
 oder eine von zwei abweichende Anzahl Bestandteile ergeben `AuthorizationError`.
 Auch Authorization-Header werden nicht protokolliert.
-Als nächstes bietet sich der Login-Endpunkt als eigenes kleines Paket an;
-bisher gibt es keinen Login-Endpunkt oder REST-Zugriffsschutz.
+`QUERY /auth/token` nimmt `username` und `password` als JSON-Objekt entgegen.
+Der Login-Router fordert ein Token an und wertet es mit `get_user_from_token`
+aus. Die Antwort enthält ausschließlich `token` (Access Token), `expires_in`
+und `rollen`; das Refresh Token wird nicht ausgegeben. Fehlender oder ungültiger
+JSON-Body sowie fehlende/zusätzliche Felder ergeben 401 ohne Body statt 422.
+Wie im Beispiel erfolgt keine zusätzliche Typvalidierung der Dataclass-Felder.
+`LoginError` und `AuthorizationError` werden als 401 mit ProblemDetails beantwortet.
+Der TokenService wird bei Bedarf erzeugt und wiederverwendet. Für echte Logins
+muss Keycloak mit dem Student-Realm laufen und `CLIENT_SECRET` gesetzt sein.
+Die Router-Tests ersetzen den Service und benötigen keine laufenden Dienste.
+Als nächstes bietet sich die Rollenprüfung als separates kleines Paket an;
+die bestehenden REST-Endpunkte haben noch keinen Zugriffsschutz.
 
 ## Manuelle Tests mit Bruno
 

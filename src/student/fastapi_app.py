@@ -19,7 +19,8 @@ from student.router import (
     student_router,
     student_write_router,
 )
-from student.security import set_response_headers
+from student.security import AuthorizationError, LoginError, set_response_headers
+from student.security.auth_router import router as auth_router
 from student.service import (
     EmailExistsError,
     MatrikelnummerExistsError,
@@ -94,6 +95,7 @@ app.include_router(health_router, prefix="/health")
 app.include_router(hello_router, prefix="/hello")
 app.include_router(student_router, prefix="/rest")
 app.include_router(student_write_router, prefix="/rest")
+app.include_router(auth_router, prefix="/auth")
 
 # Neuladen der DB per REST nur im Dev-Modus, wie im Beispielprojekt
 if dev_db_populate:
@@ -115,6 +117,22 @@ async def add_security_headers(
     response: Final[Response] = await call_next(request)
     set_response_headers(response)
     return response
+
+
+@app.exception_handler(AuthorizationError)
+def authorization_error_handler(
+    _request: Request, _err: AuthorizationError
+) -> Response:
+    """Ungültige Tokens mit 401 und ProblemDetails beantworten."""
+    return ProblemDetails.create(status_code=status.HTTP_401_UNAUTHORIZED).to_response()
+
+
+@app.exception_handler(LoginError)
+def login_error_handler(_request: Request, err: LoginError) -> Response:
+    """Abgelehnte Zugangsdaten wie im Beispiel mit 401 beantworten."""
+    return ProblemDetails.create(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)
+    ).to_response()
 
 
 @app.exception_handler(NotFoundError)
