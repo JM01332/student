@@ -150,8 +150,12 @@ lokale Installationen liegen unter
 [extras/compose/keycloak](extras/compose/keycloak/ReadMe.md).
 Die Infrastruktur verwendet wie das Beispiel PostgreSQL und die externen Volumes
 `kc_data` und `kc_tls`. Vorhandene Beispiel-Realms werden nicht verändert.
-Student-Realm, Client, Rollen und die Authentifizierung der REST-Endpunkte sind
-noch nicht eingerichtet.
+Der lokale Realm `student` mit Client `student-client`, den Client-Rollen
+`admin` und `student` sowie zwei Testzugängen ist eingerichtet. Die Anleitung
+enthält die Einrichtungsschritte und einen Prüfaufruf für Discovery,
+Token-Ausstellung und Rollen. Das Client Secret liegt ausschließlich in der
+lokalen `.env` (Vorlage: `.env.example`). Die OIDC-Anbindung der Anwendung und
+die Authentifizierung der REST-Endpunkte folgen separat.
 
 ## Manuelle Tests mit Bruno
 
