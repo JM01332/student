@@ -63,8 +63,8 @@ uv sync --all-groups
 ```
 
 Das Paket wird dabei aus `src/student/` installiert. Zur Laufzeit werden FastAPI,
-Uvicorn, loguru, SQLAlchemy, psycopg und python-dotenv benötigt, für Tests und
-Hilfsskripte pytest, pytest-mock und httpx sowie Ruff und ty für die Codeprüfung.
+Uvicorn, loguru, SQLAlchemy, psycopg, python-dotenv und python-keycloak benötigt,
+für Tests und Hilfsskripte pytest, pytest-mock und httpx sowie Ruff und ty für die Codeprüfung.
 `uv.lock` hält die aufgelösten Versionen fest.
 
 Für OWASP Dependency Check wird eine lokale `.env` benötigt (siehe
@@ -168,8 +168,16 @@ Das Secret wird nicht in der Konfigurationsdarstellung ausgegeben. Ohne Secret
 bleibt das Feld vorerst leer, damit Unit-Tests und der bisherige App-Betrieb ohne
 Keycloak-Zugang möglich bleiben. Die Konfiguration allein baut keine Verbindung auf.
 Das öffentliche Zertifikat unter `src/student/config/resources/keycloak/` entspricht
-dem Compose-Zertifikat und ist als Vertrauensanker vorbereitet. Nächster Schritt
-ist der TokenService einschließlich `decode_token` nach dem Beispiel.
+dem Compose-Zertifikat. `TokenService` verwendet die Konfiguration einschließlich
+dieses Zertifikats für die TLS-Prüfung. `token(username, password)` fordert Access
+und Refresh Token an und gibt die Keycloak-Antwort einschließlich Ablaufangaben
+unverändert zurück. Fehlende Zugangsdaten (`None`) und die Keycloak-Fehler
+`KeycloakAuthenticationError` bzw. `KeycloakOperationError` ergeben `LoginError`.
+Leere Zeichenketten und ein fehlendes Client Secret werden beim Token-Aufruf
+durch Keycloak geprüft. Passwörter und Tokens werden nicht protokolliert.
+Die Unit-Tests ersetzen den OIDC-Client durch Mocks und benötigen keinen Server.
+Als nächstes folgen `decode_token` mit Benutzer-/Rollenmodellen und anschließend
+die REST-Anbindung; bisher gibt es keinen Login-Endpunkt oder REST-Zugriffsschutz.
 
 ## Manuelle Tests mit Bruno
 
