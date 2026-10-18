@@ -8,6 +8,7 @@ from student.config.db import (
     db_url_admin,
 )
 from student.config.dev_modus import dev_db_populate
+from student.config.keycloak import keycloak_config
 from student.config.server import host_binding, port
 from student.config.tls import tls_certfile, tls_keyfile
 
@@ -19,6 +20,7 @@ __all__ = [
     "db_url_admin",
     "dev_db_populate",
     "host_binding",
+    "keycloak_config",
     "port",
     "tls_certfile",
     "tls_keyfile",

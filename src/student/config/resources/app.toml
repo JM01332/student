@@ -27,6 +27,16 @@ log-statements = true
 # max. Wartezeit in Sekunden beim Verbindungsaufbau (Standard 2)
 # connect-timeout = 2
 
+[keycloak]
+# App auf dem Host-Rechner, Keycloak über den veröffentlichten HTTPS-Port
+host = "localhost"
+port = 8843
+# schema = "https"
+# realm = "student"
+# client-id = "student-client"
+# certificate = "certificate.crt": unter resources/keycloak
+# CLIENT_SECRET aus der Umgebung oder .env im Arbeitsverzeichnis
+
 [dev]
 # DB beim Start mit drop.sql, create.sql und den CSV-Testdaten neu laden
 db-populate = true

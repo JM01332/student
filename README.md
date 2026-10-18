@@ -63,8 +63,9 @@ uv sync --all-groups
 ```
 
 Das Paket wird dabei aus `src/student/` installiert. Zur Laufzeit werden FastAPI,
-Uvicorn, loguru, SQLAlchemy und psycopg benötigt, für Tests und Hilfsskripte
-pytest, pytest-mock, httpx und python-dotenv sowie Ruff und ty für die Codeprüfung. `uv.lock` hält die aufgelösten Versionen fest.
+Uvicorn, loguru, SQLAlchemy, psycopg und python-dotenv benötigt, für Tests und
+Hilfsskripte pytest, pytest-mock und httpx sowie Ruff und ty für die Codeprüfung.
+`uv.lock` hält die aufgelösten Versionen fest.
 
 Für OWASP Dependency Check wird eine lokale `.env` benötigt (siehe
 [Sicherheits- und Codeanalyse](#sicherheits--und-codeanalyse)):
@@ -121,6 +122,9 @@ Start mit `tomllib` eingelesen:
   `log-statements` zum Protokollieren der SQL-Anweisungen, `connect-timeout`
   (Standard 2 Sekunden) als maximale Wartezeit beim Verbindungsaufbau
 - `[dev]`: `db-populate` lädt die Datenbank beim Start neu
+- `[keycloak]`: `schema`, `host` und `port` (Standard `https`, `localhost`, `8843`),
+  `realm` (`student`), `client-id` (`student-client`) und `certificate`
+  (`certificate.crt` unter `resources/keycloak/`) für die TLS-Prüfung
 
 Auskommentierte Einträge verwenden den Standardwert. Das Paket `student.config`
 stellt die Werte für die Anwendung bereit. Der private Schlüssel ist bewusst im
@@ -156,6 +160,16 @@ enthält die Einrichtungsschritte und einen Prüfaufruf für Discovery,
 Token-Ausstellung und Rollen. Das Client Secret liegt ausschließlich in der
 lokalen `.env` (Vorlage: `.env.example`). Die OIDC-Anbindung der Anwendung und
 die Authentifizierung der REST-Endpunkte folgen separat.
+
+Die Anwendung stellt bereits `keycloak_config` mit diesen Verbindungsdaten bereit.
+`CLIENT_SECRET` wird aus der Prozessumgebung gelesen, ersatzweise aus `.env` im
+aktuellen Arbeitsverzeichnis; die Anwendung daher aus dem Projektverzeichnis starten.
+Das Secret wird nicht in der Konfigurationsdarstellung ausgegeben. Ohne Secret
+bleibt das Feld vorerst leer, damit Unit-Tests und der bisherige App-Betrieb ohne
+Keycloak-Zugang möglich bleiben. Die Konfiguration allein baut keine Verbindung auf.
+Das öffentliche Zertifikat unter `src/student/config/resources/keycloak/` entspricht
+dem Compose-Zertifikat und ist als Vertrauensanker vorbereitet. Nächster Schritt
+ist der TokenService einschließlich `decode_token` nach dem Beispiel.
 
 ## Manuelle Tests mit Bruno
 
