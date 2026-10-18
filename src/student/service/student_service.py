@@ -5,7 +5,8 @@ from typing import Final
 from loguru import logger
 
 from student.repository import Session
-from student.service.exceptions import NotFoundError
+from student.security import Role, User
+from student.service.exceptions import ForbiddenError, NotFoundError
 from student.service.student_dto import StudentDTO
 lazy from student.repository import StudentRepository
 lazy from student.repository.pageable import Pageable
@@ -20,24 +21,31 @@ class StudentService:
         """Konstruktor mit abhängigem StudentRepository."""
         self.repo: StudentRepository = repo
 
-    def find_by_id(self, student_id: int) -> StudentDTO:
+    def find_by_id(self, student_id: int, user: User) -> StudentDTO:
         """Einen Studierenden anhand der ID suchen.
 
         :param student_id: ID des gesuchten Studierenden
+        :param user: Authentifizierter Benutzer aus dem Token
         :return: Daten des gefundenen Studierenden
         :rtype: StudentDTO
-        :raises NotFoundError: Falls es keinen Studierenden mit der ID gibt
+        :raises NotFoundError: Falls ADMIN eine unbekannte ID abfragt
+        :raises ForbiddenError: Falls der Benutzer den Datensatz nicht lesen darf
         """
         logger.debug("student_id={}", student_id)
         # "with" schließt die Session am Ende des Blocks, auch bei einem Fehler
         with Session() as session:
+            user_is_admin: Final = Role.ADMIN in user.roles
             student: Final = self.repo.find_by_id(
                 student_id=student_id,
                 session=session,
             )
             if student is None:
+                if not user_is_admin:
+                    raise ForbiddenError
                 logger.debug("NotFoundError: student_id={}", student_id)
                 raise NotFoundError(student_id=student_id)
+            if student.username != user.username and not user_is_admin:
+                raise ForbiddenError
             # DTO erzeugen, solange die Session noch offen ist
             student_dto: Final = StudentDTO.from_student(student)
             session.commit()

@@ -14,7 +14,7 @@ from student.router.student_find_model import (
     StudentPageModel,
     StudentResponseModel,
 )
-from student.security import Role, RolesRequired
+from student.security import Role, RolesRequired, User
 lazy from student.service import StudentService
 
 __all__ = ["student_router"]
@@ -35,14 +35,16 @@ def get_by_id(
     """Suche mit der Student-ID.
 
     :param student_id: ID des gesuchten Studierenden als Pfadparameter
-    :param request: Request mit optionalem If-None-Match-Header
+    :param request: Request mit authentifiziertem Benutzer und optionalem ETag
     :param service: Injizierter Service für Geschäftslogik
     :return: JSON mit ETag oder HTTP 304 ohne Body bei gleicher Version
     :rtype: Response
-    :raises NotFoundError: Falls es die ID nicht gibt, als 404 durch den Handler
+    :raises NotFoundError: Falls ADMIN eine unbekannte ID abfragt, als 404
+    :raises ForbiddenError: Falls der Datensatzzugriff verweigert wird, als 403
     """
     logger.debug("student_id={}", student_id)
-    student: Final = service.find_by_id(student_id)
+    user: Final[User] = request.state.current_user
+    student: Final = service.find_by_id(student_id=student_id, user=user)
     headers: Final = {ETAG: f'"{student.version}"'}
     if_none_match: Final = request.headers.get(IF_NONE_MATCH)
     if (

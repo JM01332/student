@@ -218,9 +218,12 @@ Die lesenden REST-Endpunkte verlangen einen gültigen Bearer-Token:
 - `GET /rest`: Rolle `admin`
 
 Fehlende oder ungültige Authentifizierung ergibt 401, eine fehlende Rolle 403.
-Auch eine Antwort mit 304 setzt erfolgreiche Authentifizierung voraus.
-Die datensatzbezogene Prüfung des Benutzernamens im Service folgt als nächstes
-kleines Paket: Aktuell darf die Rolle `student` jede ID lesen.
+Auch eine Antwort mit 304 setzt erfolgreichen Datensatzzugriff voraus.
+`StudentService.find_by_id` prüft den Benutzer aus dem Token: `admin` darf jeden
+Datensatz lesen, `student` nur bei exakt übereinstimmendem `username`. Fremde
+und nicht vorhandene IDs ergeben für `student` gleichermaßen 403 mit
+ProblemDetails; für `admin` bleibt eine unbekannte ID bei 404.
+Als nächstes kleines Paket ist der REST-Rollenschutz für POST vorgesehen.
 Schreibzugriffe und der Dev-Endpunkt sind weiterhin ungeschützt.
 
 ## Manuelle Tests mit Bruno

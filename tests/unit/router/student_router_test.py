@@ -11,14 +11,18 @@ import pytest
 from fastapi import FastAPI, Request
 lazy from pytest_mock import MockerFixture
 
-from student.fastapi_app import authorization_error_handler, not_found_error_handler
+from student.fastapi_app import (
+    authorization_error_handler,
+    forbidden_error_handler,
+    not_found_error_handler,
+)
 from student.router.dependencies import get_service
 from student.router.student_find_model import StudentFindModel
 from student.router.student_router import get, get_by_id, student_router
 from student.security import AuthorizationError, Role, TokenService, User
 from student.security.dependencies import get_token_service
 from student.service import PruefungsleistungDTO, StudentDTO, StudentService
-from student.service.exceptions import NotFoundError
+from student.service.exceptions import ForbiddenError, NotFoundError
 
 
 @pytest.fixture
@@ -44,13 +48,22 @@ def service(mocker: MockerFixture) -> Mock:
 def _request(etag: str | None) -> Request:
     """Request mit optionalem If-None-Match-Header erzeugen."""
     headers = [] if etag is None else [(b"if-none-match", etag.encode("ascii"))]
-    return Request({"type": "http", "headers": headers})
+    request = Request({"type": "http", "headers": headers})
+    request.state.current_user = User(
+        username="test",
+        email="test@example.org",
+        vorname="Test",
+        nachname="Test",
+        roles=[Role.ADMIN],
+    )
+    return request
 
 
 @pytest.mark.parametrize("etag", [None, '"0"', "3", '""', '"abc"', '"3', '3"'])
 def test_get_returns_json_and_etag(service: Mock, etag: str | None) -> None:
     """Ohne passende Version werden JSON-Daten samt ETag geliefert."""
-    response = get_by_id(1, _request(etag), service)
+    request = _request(etag)
+    response = get_by_id(1, request, service)
 
     assert response.status_code == HTTPStatus.OK
     assert response.headers["etag"] == '"3"'
@@ -58,7 +71,11 @@ def test_get_returns_json_and_etag(service: Mock, etag: str | None) -> None:
     assert body["id"] == 1
     assert body["pruefungsleistungen"][0]["note"] == "1.3"
     assert "version" not in body
-    service.find_by_id.assert_called_once_with(1)
+    assert service.find_by_id.call_args.kwargs == {
+        "student_id": 1,
+        "user": request.state.current_user,
+    }
+    service.find_by_id.assert_called_once()
 
 
 def test_get_matching_version_returns_empty_response(service: Mock) -> None:
@@ -136,6 +153,7 @@ def app(service: Mock, mocker: MockerFixture) -> FastAPI:
     app.include_router(student_router, prefix="/rest")
     app.exception_handler(AuthorizationError)(authorization_error_handler)
     app.exception_handler(NotFoundError)(not_found_error_handler)
+    app.exception_handler(ForbiddenError)(forbidden_error_handler)
     token_service = TokenService.__new__(TokenService)
 
     def decode(token: str) -> User:
@@ -204,7 +222,11 @@ def test_read_roles(
     elif path == "/rest/1":
         assert response.json()["id"] == 1
         assert response.headers["etag"] == '"3"'
-        service.find_by_id.assert_called_once_with(1)
+        service.find_by_id.assert_called_once()
+        kwargs = service.find_by_id.call_args.kwargs
+        assert kwargs["student_id"] == 1
+        assert kwargs["user"].username == "test"
+        assert kwargs["user"].roles == [Role[role.upper()]]
     else:
         assert response.json()["content"][0]["id"] == 1
         assert response.json()["page"]["total_elements"] == 1
@@ -240,3 +262,26 @@ def test_authorized_not_found(app: FastAPI, service: Mock, path: str) -> None:
     response = _get(app, path, {"Authorization": "Bearer admin"})
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.headers["content-type"] == "application/problem+json"
+
+
+@pytest.mark.parametrize("etag", [None, '"3"'])
+def test_forbidden_datensatz_auch_mit_etag(
+    app: FastAPI,
+    service: Mock,
+    etag: str | None,
+) -> None:
+    service.find_by_id.side_effect = ForbiddenError
+    headers = {"Authorization": "Bearer student"}
+    if etag is not None:
+        headers["If-None-Match"] = etag
+
+    response = _get(app, "/rest/1", headers)
+
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    assert response.headers["content-type"] == "application/problem+json"
+    assert response.json() == {
+        "title": "Forbidden",
+        "status_code": 403,
+        "detail": None,
+    }
+    assert "etag" not in response.headers

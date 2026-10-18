@@ -2,6 +2,7 @@
 
 __all__ = [
     "EmailExistsError",
+    "ForbiddenError",
     "MatrikelnummerExistsError",
     "NotFoundError",
     "VersionOutdatedError",
@@ -30,6 +31,10 @@ class MatrikelnummerExistsError(Exception):
         """
         super().__init__(f"Existierende Matrikelnummer: {matrikelnummer}")
         self.matrikelnummer = matrikelnummer
+
+
+class ForbiddenError(Exception):
+    """Exception, falls der Zugriff auf den Datensatz nicht erlaubt ist."""
 
 
 class NotFoundError(Exception):

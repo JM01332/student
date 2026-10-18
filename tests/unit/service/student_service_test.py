@@ -9,7 +9,8 @@ lazy from pytest_mock import MockerFixture
 from student.entity import Adresse, Pruefungsleistung, Student
 from student.repository import StudentRepository
 from student.repository.pageable import Pageable
-from student.service import NotFoundError, StudentService
+from student.security import Role, User
+from student.service import ForbiddenError, NotFoundError, StudentService
 
 NICHT_VORHANDENE_ID = 999999
 """ID, zu der das Repository-Mock nichts findet."""
@@ -87,7 +88,7 @@ def test_find_by_id(
     repo_mock.find_by_id.return_value = _student_entity()
 
     # Act
-    student = service.find_by_id(student_id=1)
+    student = service.find_by_id(student_id=1, user=_user("admin", [Role.ADMIN]))
 
     # Assert
     assert student is not None
@@ -110,7 +111,9 @@ def test_find_by_id_nicht_vorhanden(
 
     # pytest.raises: der Test ist nur erfolgreich, wenn die Exception geworfen wird
     with pytest.raises(NotFoundError) as err:
-        service.find_by_id(student_id=NICHT_VORHANDENE_ID)
+        service.find_by_id(
+            student_id=NICHT_VORHANDENE_ID, user=_user("admin", [Role.ADMIN])
+        )
 
     assert err.value.student_id == NICHT_VORHANDENE_ID
     repo_mock.find_by_id.assert_called_once_with(
@@ -213,3 +216,72 @@ def test_find_ohne_treffer(
         nachname="xyz", email=None, pageable=pageable, session=session_mock
     )
     session_mock.commit.assert_not_called()
+
+
+def _user(username: str, roles: list[Role]) -> User:
+    """Synthetischen Benutzer für die Zugriffsprüfung erzeugen."""
+    return User(
+        username=username,
+        roles=roles,
+        email="test@example.org",
+        vorname="Test",
+        nachname="Test",
+    )
+
+
+@pytest.mark.parametrize("roles", [[Role.STUDENT], [Role.ADMIN, Role.STUDENT]])
+def test_find_by_id_eigener_datensatz(
+    service: StudentService, repo_mock: Mock, session_mock: Mock, roles: list[Role]
+) -> None:
+    repo_mock.find_by_id.return_value = _student_entity()
+
+    result = service.find_by_id(1, _user("mocktest", roles))
+
+    assert result.id == 1
+    session_mock.commit.assert_called_once()
+
+
+@pytest.mark.parametrize("username", ["fremd", "Mocktest", None])
+def test_find_by_id_fremder_datensatz(
+    service: StudentService,
+    repo_mock: Mock,
+    session_mock: Mock,
+    mocker: MockerFixture,
+    username: str | None,
+) -> None:
+    student = _student_entity()
+    student.username = username
+    repo_mock.find_by_id.return_value = student
+    dto = mocker.patch("student.service.student_service.StudentDTO.from_student")
+
+    with pytest.raises(ForbiddenError):
+        service.find_by_id(1, _user("mocktest", [Role.STUDENT]))
+
+    dto.assert_not_called()
+    session_mock.commit.assert_not_called()
+
+
+def test_find_by_id_unbekannt_fuer_student(
+    service: StudentService,
+    repo_mock: Mock,
+    session_mock: Mock,
+) -> None:
+    repo_mock.find_by_id.return_value = None
+
+    with pytest.raises(ForbiddenError):
+        service.find_by_id(NICHT_VORHANDENE_ID, _user("mocktest", [Role.STUDENT]))
+
+    session_mock.commit.assert_not_called()
+
+
+def test_find_by_id_admin_mit_beiden_rollen(
+    service: StudentService,
+    repo_mock: Mock,
+    session_mock: Mock,
+) -> None:
+    repo_mock.find_by_id.return_value = _student_entity()
+
+    result = service.find_by_id(1, _user("admin", [Role.STUDENT, Role.ADMIN]))
+
+    assert result.id == 1
+    session_mock.commit.assert_called_once()

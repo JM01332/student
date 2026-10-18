@@ -23,6 +23,7 @@ from student.security import AuthorizationError, LoginError, set_response_header
 from student.security.auth_router import router as auth_router
 from student.service import (
     EmailExistsError,
+    ForbiddenError,
     MatrikelnummerExistsError,
     NotFoundError,
     VersionOutdatedError,
@@ -133,6 +134,12 @@ def login_error_handler(_request: Request, err: LoginError) -> Response:
     return ProblemDetails.create(
         status_code=status.HTTP_401_UNAUTHORIZED, detail=str(err)
     ).to_response()
+
+
+@app.exception_handler(ForbiddenError)
+def forbidden_error_handler(_request: Request, _err: ForbiddenError) -> Response:
+    """Verweigerten Datensatzzugriff mit 403 und ProblemDetails beantworten."""
+    return ProblemDetails.create(status_code=status.HTTP_403_FORBIDDEN).to_response()
 
 
 @app.exception_handler(NotFoundError)
