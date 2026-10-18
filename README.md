@@ -160,8 +160,8 @@ Der lokale Realm `student` mit Client `student-client`, den Client-Rollen
 `admin` und `student` sowie zwei Testzugängen ist eingerichtet. Die Anleitung
 enthält die Einrichtungsschritte und einen Prüfaufruf für Discovery,
 Token-Ausstellung und Rollen. Das Client Secret liegt ausschließlich in der
-lokalen `.env` (Vorlage: `.env.example`). Die OIDC-Anbindung der Anwendung und
-die Authentifizierung der REST-Endpunkte folgen separat.
+lokalen `.env` (Vorlage: `.env.example`). Die OIDC-Anbindung der Anwendung ist
+vorhanden; die Authentifizierung der REST-Endpunkte folgt separat.
 
 Die Anwendung stellt bereits `keycloak_config` mit diesen Verbindungsdaten bereit.
 `CLIENT_SECRET` wird aus der Prozessumgebung gelesen, ersatzweise aus `.env` im
@@ -204,8 +204,15 @@ Wie im Beispiel erfolgt keine zusätzliche Typvalidierung der Dataclass-Felder.
 Der TokenService wird bei Bedarf erzeugt und wiederverwendet. Für echte Logins
 muss Keycloak mit dem Student-Realm laufen und `CLIENT_SECRET` gesetzt sein.
 Die Router-Tests ersetzen den Service und benötigen keine laufenden Dienste.
-Als nächstes bietet sich die Rollenprüfung als separates kleines Paket an;
-die bestehenden REST-Endpunkte haben noch keinen Zugriffsschutz.
+`RolesRequired` steht als FastAPI-Dependency für die Rollenprüfung bereit.
+Bei einer einzelnen Rolle muss diese vorhanden sein; bei einer Rollenliste
+genügt eine Übereinstimmung. Eine leere Anforderungsliste erlaubt keinen Zugriff.
+Fehlende Rollen ergeben HTTP 403, ungültige Authentifizierung über den bestehenden
+Handler HTTP 401. Nur bei erfolgreicher Prüfung wird der Benutzer unter
+`request.state.current_user` abgelegt. Benutzerdaten werden nicht protokolliert.
+Die bestehenden REST-Endpunkte haben noch keinen Zugriffsschutz. Als nächstes
+folgt die Anbindung der Rollenprüfung an die lesenden REST-Endpunkte;
+Schreibzugriffe werden in einem eigenen Paket geschützt.
 
 ## Manuelle Tests mit Bruno
 
