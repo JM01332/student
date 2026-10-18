@@ -33,7 +33,8 @@ SQLAlchemy, DTOs als Rückgabe des Service und Pydantic-Response-Models im Route
 Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
 `fastapi_app.py` macht daraus die HTTP-Antwort. Der Server läuft über HTTPS mit einem
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
-Geplant: GraphQL, Keycloak und Docker.
+Die Keycloak-Compose-/TLS-Konfiguration ist vorbereitet; die OIDC-Anbindung,
+GraphQL und ein Docker-Image der Anwendung sind noch geplant.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
 
@@ -141,6 +142,16 @@ Tabellen: `src/student/config/resources/postgresql/create.sql` (und `drop.sql`),
 Testdaten: `extras/compose/postgres/init/student/csv` (5 Studierende mit den IDs 1,
 20, 30, 40 und 50). Die Anwendung verbindet sich mit `sslmode=verify-full` und
 vertraut dem DB-Zertifikat über `src/student/config/resources/postgresql/server.crt`.
+
+## Keycloak
+
+Compose-Konfiguration, TLS-Dateien und die Anleitung für vorhandene oder neue
+lokale Installationen liegen unter
+[extras/compose/keycloak](extras/compose/keycloak/ReadMe.md).
+Die Infrastruktur verwendet wie das Beispiel PostgreSQL und die externen Volumes
+`kc_data` und `kc_tls`. Vorhandene Beispiel-Realms werden nicht verändert.
+Student-Realm, Client, Rollen und die Authentifizierung der REST-Endpunkte sind
+noch nicht eingerichtet.
 
 ## Manuelle Tests mit Bruno
 
