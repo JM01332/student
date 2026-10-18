@@ -7,6 +7,8 @@ http:
   method: GET
   url: "{{restUrl}}?email=erika.musterfrau@h-ka.de"
   headers:
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
     - name: Accept
       value: application/json
   auth: inherit

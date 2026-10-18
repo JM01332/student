@@ -35,8 +35,9 @@ SQLAlchemy, DTOs als Rückgabe des Service und Pydantic-Response-Models im Route
 Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
 `fastapi_app.py` macht daraus die HTTP-Antwort. Der Server läuft über HTTPS mit einem
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
-Die Keycloak-Anbindung einschließlich Login ist vorhanden; REST-Rollenschutz,
-GraphQL und ein Docker-Image der Anwendung sind noch geplant.
+Die Keycloak-Anbindung einschließlich Login und Rollenschutz für lesende REST-Endpunkte
+ist vorhanden; Rollenschutz für Schreibzugriffe, GraphQL und ein Docker-Image
+der Anwendung sind noch geplant.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
 
@@ -97,7 +98,8 @@ neu starten, da Uvicorn geänderten Code nicht automatisch lädt.
 Endpunkte: <https://127.0.0.1:8000/rest/1>, <https://127.0.0.1:8000/rest> und
 <https://127.0.0.1:8000/rest?nachname=muster>. Da das Zertifikat
 selbstsigniert ist, zeigt der Browser beim ersten Aufruf eine Warnung, die man für
-die Entwicklung bestätigt.
+die Entwicklung bestätigt. REST-Lesezugriffe benötigen zusätzlich einen Bearer-Token;
+ein direkter Browseraufruf ohne Authorization-Header ergibt 401.
 
 Jede Response enthält Security-Header (HSTS, `nosniff`, `X-Frame-Options`,
 Content-Security-Policy). Die Content-Security-Policy erlaubt nur Inhalte vom
@@ -161,7 +163,7 @@ Der lokale Realm `student` mit Client `student-client`, den Client-Rollen
 enthält die Einrichtungsschritte und einen Prüfaufruf für Discovery,
 Token-Ausstellung und Rollen. Das Client Secret liegt ausschließlich in der
 lokalen `.env` (Vorlage: `.env.example`). Die OIDC-Anbindung der Anwendung ist
-vorhanden; die Authentifizierung der REST-Endpunkte folgt separat.
+vorhanden; lesende REST-Endpunkte prüfen bereits Bearer-Token und Rollen.
 
 Die Anwendung stellt bereits `keycloak_config` mit diesen Verbindungsdaten bereit.
 `CLIENT_SECRET` wird aus der Prozessumgebung gelesen, ersatzweise aus `.env` im
@@ -210,9 +212,16 @@ genügt eine Übereinstimmung. Eine leere Anforderungsliste erlaubt keinen Zugri
 Fehlende Rollen ergeben HTTP 403, ungültige Authentifizierung über den bestehenden
 Handler HTTP 401. Nur bei erfolgreicher Prüfung wird der Benutzer unter
 `request.state.current_user` abgelegt. Benutzerdaten werden nicht protokolliert.
-Die bestehenden REST-Endpunkte haben noch keinen Zugriffsschutz. Als nächstes
-folgt die Anbindung der Rollenprüfung an die lesenden REST-Endpunkte;
-Schreibzugriffe werden in einem eigenen Paket geschützt.
+Die lesenden REST-Endpunkte verlangen einen gültigen Bearer-Token:
+
+- `GET /rest/{id}`: Rolle `admin` oder `student`
+- `GET /rest`: Rolle `admin`
+
+Fehlende oder ungültige Authentifizierung ergibt 401, eine fehlende Rolle 403.
+Auch eine Antwort mit 304 setzt erfolgreiche Authentifizierung voraus.
+Die datensatzbezogene Prüfung des Benutzernamens im Service folgt als nächstes
+kleines Paket: Aktuell darf die Rolle `student` jede ID lesen.
+Schreibzugriffe und der Dev-Endpunkt sind weiterhin ungeschützt.
 
 ## Manuelle Tests mit Bruno
 
@@ -227,7 +236,9 @@ Die Collection hat die Ordner *Dev*, *Hello*, *Health* und *REST* (mit *Suche mi
 Assertions (Statuscode, Header, Body). Mit dem Server im
 Hintergrund (`uv run python -m student`) lassen sich alle Requests über *Run* auf der
 Collection auf einmal ausführen. Die Variable `baseUrl` steht in
-`opencollection.yml`.
+`opencollection.yml`. Für GET-Requests in REST eine lokale Bruno-Variable
+`accessToken` mit einem aktuellen Admin-Access-Token aus `QUERY /auth/token`
+setzen. Token nicht in die Collection committen; nach Ablauf erneuern.
 
 Schreibende Requests verändern die Testdaten: „Neuer Student“, „Vorhandenen Student
 aendern“ und „Vorhandene ID 50 loeschen“ klappen jeweils nur einmal. Beim Ausführen
@@ -242,9 +253,12 @@ Es gibt zwei Arten von Tests, wie im FastAPI-Beispiel:
 - **Unit-Tests** (`tests/unit`) brauchen weder Server noch Datenbank und laufen auch
   in der CI.
 - **Integrationstests** (`tests/integration`) schicken mit httpx echte
-  HTTPS-Requests an den laufenden Server. Vorher PostgreSQL und den Server
+  HTTPS-Requests an den laufenden Server. Vorher Keycloak, PostgreSQL und den Server
   (`uv run python -m student`) starten; sonst bricht der Testlauf mit einem Hinweis ab. Sie
-  laufen nur lokal.
+  laufen nur lokal. Zusätzlich `STUDENT_TEST_TOKEN` in der Prozessumgebung mit
+  einem aktuellen Admin-Access-Token aus `QUERY /auth/token` setzen. Die Fixture
+  prüft den Zugriff vor dem automatischen Neuladen der Datenbank und bricht bei
+  fehlendem oder abgelehntem Token ab. Token weder speichern noch committen.
 
 ```powershell
 uv run pytest tests/unit          # nur Unit-Tests

@@ -7,6 +7,8 @@ http:
   method: GET
   url: "{{restUrl}}/:id"
   headers:
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
     - name: Accept
       value: application/json
     - name: If-None-Match

@@ -1,5 +1,6 @@
 """Gemeinsame Fixtures für die Integrationstests gegen den laufenden Server."""
 
+import os
 import ssl
 from http import HTTPStatus
 from pathlib import Path
@@ -51,6 +52,21 @@ def client() -> Iterator[Client]:
             pytest.exit(
                 "Der Server läuft, aber die Datenbank ist nicht erreichbar: PostgreSQL"
                 " mit `docker compose up` in extras/compose/postgres starten.",
+                returncode=1,
+            )
+        token = os.environ.get("STUDENT_TEST_TOKEN")
+        if not token:
+            pytest.exit(
+                "STUDENT_TEST_TOKEN mit einem aktuellen Admin-Access-Token setzen.",
+                returncode=1,
+            )
+        client.headers["Authorization"] = f"Bearer {token}"
+        # Vor dem automatischen DB-Neuladen Authentifizierung und Adminrolle prüfen.
+        probe = client.get("/rest", params={"size": 1})
+        if probe.status_code not in {HTTPStatus.OK, HTTPStatus.NOT_FOUND}:
+            pytest.exit(
+                "Admin-Token nicht verwendbar: GET /rest ergibt "
+                f"HTTP {probe.status_code}. Keycloak und Token prüfen.",
                 returncode=1,
             )
         yield client

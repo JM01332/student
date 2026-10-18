@@ -7,6 +7,8 @@ http:
   method: GET
   url: "{{restUrl}}?page=1&size=2"
   headers:
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
     - name: Accept
       value: application/json
   auth: inherit

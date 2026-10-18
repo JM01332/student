@@ -14,6 +14,7 @@ from student.router.student_find_model import (
     StudentPageModel,
     StudentResponseModel,
 )
+from student.security import Role, RolesRequired
 lazy from student.service import StudentService
 
 __all__ = ["student_router"]
@@ -21,7 +22,11 @@ __all__ = ["student_router"]
 student_router: Final = APIRouter(tags=["Lesen"])
 
 
-@student_router.get("/{student_id}", response_model=StudentResponseModel)
+@student_router.get(
+    "/{student_id}",
+    dependencies=[Depends(RolesRequired([Role.ADMIN, Role.STUDENT]))],
+    response_model=StudentResponseModel,
+)
 def get_by_id(
     student_id: int,
     request: Request,
@@ -62,7 +67,11 @@ def get_by_id(
     )
 
 
-@student_router.get("", response_model=StudentPageModel)
+@student_router.get(
+    "",
+    dependencies=[Depends(RolesRequired(Role.ADMIN))],
+    response_model=StudentPageModel,
+)
 def get(
     find_model: Annotated[StudentFindModel, Query()],
     service: Annotated[StudentService, Depends(get_service)],
