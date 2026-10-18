@@ -1,7 +1,7 @@
 info:
   name: Zweite Seite
   type: http
-  seq: 6
+  seq: 19
 
 http:
   method: GET

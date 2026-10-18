@@ -231,14 +231,36 @@ FastAPI-Beispiel). In Bruno (`C:\Zimmermann\Bruno\Bruno.exe`) über
 selbstsigniert ist, unter *Preferences > General* die Option
 *SSL/TLS Certificate Verification* deaktivieren.
 
-Die Collection hat die Ordner *Dev*, *Hello*, *Health* und *REST* (mit *Suche mit ID*,
-*Suche mit Suchparameter*, *Neu anlegen*, *Aendern* und *Loeschen*); jeder Request enthält
-Assertions (Statuscode, Header, Body). Mit dem Server im
-Hintergrund (`uv run python -m student`) lassen sich alle Requests über *Run* auf der
-Collection auf einmal ausführen. Die Variable `baseUrl` steht in
-`opencollection.yml`. Für GET-Requests in REST eine lokale Bruno-Variable
-`accessToken` mit einem aktuellen Admin-Access-Token aus `QUERY /auth/token`
-setzen. Token nicht in die Collection committen; nach Ablauf erneuern.
+Die Collection hat die Ordner *Dev*, *Hello*, *Health* und *REST* (mit *Token*,
+*Suche mit ID*, *Suche mit Suchparameter*, *Neu anlegen*, *Aendern* und *Loeschen*).
+Für den Login müssen PostgreSQL, Keycloak mit Student-Realm und die Anwendung
+laufen; `CLIENT_SECRET` muss für die Anwendung gesetzt sein.
+
+1. In Bruno das Environment *student* auswählen. Es enthält `username = admin`
+   und die Secret-Variable `password` ohne gespeicherten Wert.
+2. Im Environment das Passwort des lokalen Keycloak-Benutzers `admin` bei
+   `password` eintragen, die Markierung *Secret* beibehalten und *Save* wählen.
+   Bruno speichert Secret-Werte lokal außerhalb der Collection.
+3. Unter *REST > Token* den Request *Token als admin* ausführen. Er ruft
+   `QUERY /auth/token` auf und übernimmt bei Erfolg `token` als Laufzeitvariable
+   `accessToken`. Die vorhandenen REST-GET-Requests verwenden diese automatisch
+   im Bearer-Header. Vor jedem Login wird der bisherige Laufzeitwert geleert,
+   damit ein fehlgeschlagener Login keinen alten Token weiterverwendet.
+4. Danach einzelne REST-Requests ausführen. Nach Ablauf des Tokens (30 Minuten)
+   oder nach einem Bruno-Neustart erneut einloggen. Tokens nicht als feste
+   Collection- oder Environment-Werte speichern.
+
+Bei *Run* auf der ganzen Collection zuerst das Environment *student* auswählen.
+Die Requests müssen nacheinander in der gespeicherten Reihenfolge laufen, nicht
+parallel. Beim Lauf nur des REST-Ordners vorher unter *Dev* die Datenbank neu laden.
+Alle HTTP-Requests haben collectionweit eindeutige Sequenznummern (1–33).
+Damit ergibt sowohl die Sortierung innerhalb der Ordner als auch die Sortierung
+einer flachen Request-Liste dieselbe Reihenfolge. Neue Requests entsprechend
+einsortieren und die nachfolgenden Sequenznummern anpassen.
+Der Lauf der ganzen Collection lädt zunächst die Datenbank neu und führt innerhalb von *REST* den Login
+vor den Lese- und Schreibtests aus. Die Variable `baseUrl` steht weiterhin in
+`opencollection.yml`. Für den Login über die Anwendung wird kein Client Secret
+in Bruno benötigt.
 
 Schreibende Requests verändern die Testdaten: „Neuer Student“, „Vorhandenen Student
 aendern“ und „Vorhandene ID 50 loeschen“ klappen jeweils nur einmal. Beim Ausführen

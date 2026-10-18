@@ -1,7 +1,7 @@
 info:
   name: Nicht-vorhandene ID 999999 loeschen
   type: http
-  seq: 3
+  seq: 33
 
 http:
   method: DELETE

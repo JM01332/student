@@ -1,7 +1,7 @@
 info:
   name: Unveraendert mit ETag
   type: http
-  seq: 5
+  seq: 11
 
 http:
   method: GET
@@ -25,8 +25,8 @@ runtime:
       operator: eq
       value: "304"
     - expression: res.headers['etag']
-      operator: eq
-      value: '"0"'
+      operator: matches
+      value: '^"0"$'
 
 settings:
   encodeUrl: true

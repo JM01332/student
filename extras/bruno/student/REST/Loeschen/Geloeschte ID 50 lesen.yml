@@ -1,7 +1,7 @@
 info:
   name: Geloeschte ID 50 lesen
   type: http
-  seq: 2
+  seq: 32
 
 http:
   method: GET

@@ -1,7 +1,7 @@
 info:
   name: Vorhandene ID 1
   type: http
-  seq: 1
+  seq: 7
 
 http:
   method: GET
@@ -20,8 +20,8 @@ http:
 runtime:
   assertions:
     - expression: res.headers['etag']
-      operator: eq
-      value: '"0"'
+      operator: matches
+      value: '^"0"$'
     - expression: res.status
       operator: eq
       value: "200"

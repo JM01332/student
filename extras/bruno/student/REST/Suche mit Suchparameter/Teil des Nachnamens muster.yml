@@ -1,7 +1,7 @@
 info:
   name: Teil des Nachnamens muster
   type: http
-  seq: 2
+  seq: 15
 
 http:
   method: GET

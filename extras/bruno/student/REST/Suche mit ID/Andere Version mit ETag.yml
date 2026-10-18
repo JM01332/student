@@ -1,7 +1,7 @@
 info:
   name: Andere Version mit ETag
   type: http
-  seq: 6
+  seq: 12
 
 http:
   method: GET
@@ -25,8 +25,8 @@ runtime:
       operator: eq
       value: "200"
     - expression: res.headers['etag']
-      operator: eq
-      value: '"0"'
+      operator: matches
+      value: '^"0"$'
     - expression: res.body.id
       operator: eq
       value: "1"

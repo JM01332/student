@@ -1,7 +1,7 @@
 info:
   name: Neuer Student mit existierender Email
   type: http
-  seq: 3
+  seq: 22
 
 http:
   method: POST

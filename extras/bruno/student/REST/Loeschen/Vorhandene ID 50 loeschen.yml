@@ -1,7 +1,7 @@
 info:
   name: Vorhandene ID 50 loeschen
   type: http
-  seq: 1
+  seq: 31
 
 http:
   method: DELETE
