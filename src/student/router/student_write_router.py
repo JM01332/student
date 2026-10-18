@@ -111,7 +111,10 @@ def put(
     )
 
 
-@student_write_router.delete("/{student_id}")
+@student_write_router.delete(
+    "/{student_id}",
+    dependencies=[Depends(RolesRequired([Role.ADMIN, Role.STUDENT]))],
+)
 def delete_by_id(
     student_id: int,
     service: Annotated[StudentWriteService, Depends(get_write_service)],

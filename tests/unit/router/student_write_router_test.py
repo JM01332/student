@@ -1,4 +1,4 @@
-"""Unit-Tests für POST-Rollenschutz, PUT und DELETE ohne Datenbank."""
+"""Unit-Tests für POST, PUT und DELETE mit Rollenschutz ohne Datenbank."""
 
 import asyncio
 import json
@@ -308,5 +308,66 @@ def test_put_invalid_data(
     app: FastAPI, service: Mock, authorization: str | None, expected: HTTPStatus
 ) -> None:
     response = _put(app, authorization, {})
+    assert response.status_code == expected
+    assert service.mock_calls == []
+
+
+def _delete(
+    app: FastAPI, authorization: str | None, student_id: int | str = STUDENT_ID
+) -> httpx.Response:
+    """DELETE durch den produktiven Router ohne externe Dienste senden."""
+    headers = {} if authorization is None else {"Authorization": authorization}
+
+    async def send() -> httpx.Response:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="https://test"
+        ) as client:
+            return await client.delete(f"/rest/{student_id}", headers=headers)
+
+    return asyncio.run(send())
+
+
+@pytest.mark.parametrize(
+    "authorization", [None, "Basic admin", "Bearer", "Bearer invalid"]
+)
+def test_delete_requires_valid_bearer(
+    app: FastAPI, service: Mock, authorization: str | None
+) -> None:
+    response = _delete(app, authorization)
+    assert response.status_code == HTTPStatus.UNAUTHORIZED
+    assert response.headers["content-type"] == "application/problem+json"
+    assert service.mock_calls == []
+
+
+def test_delete_requires_role(app: FastAPI, service: Mock) -> None:
+    response = _delete(app, "Bearer none")
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    assert service.mock_calls == []
+
+
+@pytest.mark.parametrize("role", ["admin", "student"])
+def test_delete_authorized(app: FastAPI, service: Mock, role: str) -> None:
+    """Beide Rollen dürfen löschen, ohne Prüfung des Datensatzbesitzes."""
+    service.delete_by_id.return_value = None
+    response = _delete(app, f"Bearer {role}")
+    assert response.status_code == HTTPStatus.NO_CONTENT
+    assert response.content == b""
+    service.delete_by_id.assert_called_once_with(student_id=STUDENT_ID)
+
+
+@pytest.mark.parametrize(
+    ("authorization", "expected"),
+    [
+        (None, HTTPStatus.UNAUTHORIZED),
+        ("Bearer none", HTTPStatus.FORBIDDEN),
+        ("Bearer admin", HTTPStatus.UNPROCESSABLE_CONTENT),
+        ("Bearer student", HTTPStatus.UNPROCESSABLE_CONTENT),
+    ],
+)
+def test_delete_invalid_id(
+    app: FastAPI, service: Mock, authorization: str | None, expected: HTTPStatus
+) -> None:
+    """Rollenprüfung vor Pfadvalidierung; berechtigt bleibt eine ungültige ID 422."""
+    response = _delete(app, authorization, "abc")
     assert response.status_code == expected
     assert service.mock_calls == []
