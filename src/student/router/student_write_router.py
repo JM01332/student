@@ -8,6 +8,7 @@ from loguru import logger
 from student.problem_details import ProblemDetails
 from student.router.constants import ETAG, IF_MATCH, IF_MATCH_MIN_LEN
 from student.router.dependencies import get_write_service
+from student.security import Role, RolesRequired
 lazy from student.router.student_model import StudentModel
 lazy from student.router.student_update_model import StudentUpdateModel
 lazy from student.service import StudentWriteService
@@ -17,7 +18,7 @@ __all__ = ["student_write_router"]
 student_write_router: Final = APIRouter(tags=["Schreiben"])
 
 
-@student_write_router.post("")
+@student_write_router.post("", dependencies=[Depends(RolesRequired(Role.ADMIN))])
 def post(
     student_model: StudentModel,
     request: Request,
