@@ -142,9 +142,16 @@ in [extras/compose/postgres/ReadMe.md](extras/compose/postgres/ReadMe.md) beschr
 Täglicher Start:
 
 ```powershell
-cd extras\compose\postgres
+cd extras\compose\backend
 docker compose up
 ```
+
+Dies startet PostgreSQL und Keycloak gemeinsam im Compose-Projekt `student`.
+Beide Dienste im selben Ordner stoppen: `docker compose stop`.
+Weitere Befehle: [Backend-Betrieb](extras/compose/backend/ReadMe.md).
+Mit `down` statt `stop` werden zusätzlich Container und Netzwerk entfernt;
+die externen Volumes bleiben erhalten. Vorher die Anwendung beenden.
+Containernamen und Volumes werden weiterhin mit dem Beispiel geteilt.
 
 Tabellen: `src/student/config/resources/postgresql/create.sql` (und `drop.sql`),
 Testdaten: `extras/compose/postgres/init/student/csv` (5 Studierende mit den IDs 1,

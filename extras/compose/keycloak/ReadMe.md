@@ -93,21 +93,26 @@ chmod 500 /opt/keycloak/tls
 exit
 ```
 
-## Start mit bereits laufendem PostgreSQL
+## Täglicher Betrieb: gemeinsames Compose-Projekt student
 
-Die Compose-Datei bindet wie im Beispiel `../postgres/compose.yml` ein.
-Für den bereits unter dem Compose-Projektnamen `postgres` gestarteten
-Datenbankcontainer im Projektverzeichnis ausführen:
+Beide Compose-Dateien legen `name: student` fest. Die Keycloak-Datei bindet
+wie im Beispiel `../postgres/compose.yml` ein und verwaltet damit beide Dienste.
+Für den gemeinsamen Start mit `docker compose up` im Ordner `backend` steht
+der [Backend-Einstieg](../backend/ReadMe.md) bereit. Die folgenden alternativen
+Befehle mit explizitem Dateipfad im Projektverzeichnis ausführen:
 
 ```powershell
-docker compose -p postgres -f extras/compose/keycloak/compose.yml config --quiet
-docker compose -p postgres -f extras/compose/keycloak/compose.yml up -d --no-deps keycloak
-docker compose -p postgres -f extras/compose/keycloak/compose.yml logs --tail 50 keycloak
+docker compose -f extras/compose/keycloak/compose.yml config --quiet
+docker compose -f extras/compose/keycloak/compose.yml up -d
+docker compose -f extras/compose/keycloak/compose.yml ps
 ```
 
-Der Projektname muss dem oben ausgelesenen Label entsprechen. `--no-deps`
-setzt voraus, dass PostgreSQL bereits gesund im Netzwerk `acme-network` läuft.
-Damit wird der bestehende Datenbankcontainer beim Keycloak-Start nicht neu erstellt.
+Keycloak wartet beim Start auf den PostgreSQL-Healthcheck. Die Containernamen
+bleiben `postgres` und `keycloak`, das Netzwerk heißt weiterhin `acme-network`.
+Die externen Volumes `pg_data`, `pg_init`, `pg_tablespace`, `kc_data` und `kc_tls`
+werden weiterverwendet. Keine erneute Datenbank- oder Realm-Einrichtung nötig.
+Das Beispiel verwendet dieselben Containernamen und Volumes; der Projektname
+schafft keine getrennte Umgebung. Nicht parallel mit dem Beispiel starten.
 Bei einem fehlgeschlagenen Einrichtungsschritt stoppen und die Ursache klären.
 
 Admin-Konsole: <https://localhost:8843> (selbstsigniertes Zertifikat), alternativ
@@ -115,14 +120,27 @@ Admin-Konsole: <https://localhost:8843> (selbstsigniertes Zertifikat), alternati
 Der übernommene Container-Healthcheck prüft nicht den HTTP-Antwortstatus;
 für die Bereitschaft zusätzlich `https://localhost:9990/health/ready` prüfen.
 
-Nur Keycloak stoppen, ohne PostgreSQL herunterzufahren:
+Nur Keycloak stoppen:
 
 ```powershell
-docker compose -p postgres -f extras/compose/keycloak/compose.yml stop keycloak
+docker compose -f extras/compose/keycloak/compose.yml stop keycloak
 ```
 
-Kein `docker compose down` für die gemeinsam verwendete Infrastruktur ausführen,
-während die Student-Anwendung oder das Beispiel PostgreSQL benötigen.
+Beide Dienste stoppen, Container behalten:
+
+```powershell
+docker compose -f extras/compose/keycloak/compose.yml stop
+```
+
+Beide Dienste stoppen und Container sowie Netzwerk entfernen:
+
+```powershell
+docker compose -f extras/compose/keycloak/compose.yml down
+```
+
+Die externen Volumes bleiben erhalten. Vor dem Herunterfahren die Anwendung
+beenden; auch das Beispiel darf PostgreSQL dann nicht mehr benötigen.
+Zum gemeinsamen Herunterfahren stets diese vollständige Compose-Datei nutzen.
 
 ## Student-Realm einrichten
 

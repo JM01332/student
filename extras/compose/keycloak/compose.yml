@@ -8,6 +8,8 @@
 # https://github.com/keycloak/keycloak/blob/main/quarkus/runtime/src/main/java/org/keycloak/quarkus/runtime/configuration/mappers/DatabasePropertyMappers.java#L110
 
 ---
+name: student
+
 include:
   - path: ../postgres/compose.yml
 

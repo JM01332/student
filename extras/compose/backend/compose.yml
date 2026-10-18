@@ -1,0 +1,7 @@
+# Gemeinsamer Start und Stopp: docker compose up / docker compose down
+---
+name: student
+
+# Keycloak bindet PostgreSQL bereits ein.
+include:
+  - path: ../keycloak/compose.yml

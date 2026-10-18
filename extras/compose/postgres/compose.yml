@@ -6,6 +6,8 @@
 # https://github.com/compose-spec/compose-spec/blob/master/schema/compose-spec.json
 
 ---
+name: student
+
 services:
   postgres:
     # https://github.com/docker-library/postgres/blob/master/19/trixie/Dockerfile

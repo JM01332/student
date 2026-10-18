@@ -227,10 +227,15 @@ exit
 
 ## Täglicher Betrieb
 
+Die Compose-Datei verwendet den Projektnamen `student`. Für den gemeinsamen
+Betrieb mit Keycloak den [Backend-Einstieg](../backend/ReadMe.md) verwenden;
+dort startet `docker compose up` beide Dienste. Die folgenden Befehle
+betreffen nur PostgreSQL. Vor dessen Stopp auch Keycloak und die Anwendung beenden.
+
 ```powershell
 cd extras\compose\postgres
-docker compose up      # starten, Fenster offen lassen
-docker compose down    # in einer 2. PowerShell: herunterfahren
+docker compose up -d postgres    # nur PostgreSQL starten
+docker compose stop postgres     # nur PostgreSQL stoppen
 ```
 
 Die Daten bleiben in den Volumes erhalten. Tabellen und Testdaten legt die Anwendung
