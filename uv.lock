@@ -626,6 +626,7 @@ source = { editable = "." }
 default-groups = "all"
 dependencies = [
     { name = "fastapi" },
+    { name = "jwcrypto" },
     { name = "loguru" },
     { name = "psycopg", extra = ["binary", "pool"] },
     { name = "pydantic", extra = ["email"] },
@@ -649,6 +650,7 @@ lint = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.141.1,<1.0.0" },
+    { name = "jwcrypto", specifier = ">=1.6.1,<2.0.0" },
     { name = "loguru", specifier = ">=0.7.3,<1.0.0" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.3.6,<4.0.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.13.5,<3.0.0" },

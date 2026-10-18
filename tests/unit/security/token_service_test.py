@@ -1,16 +1,18 @@
-"""Token-Ausstellung ohne Keycloak-Verbindung mit Mocks prüfen."""
+"""Token-Ausstellung und -Auswertung ohne Keycloak-Verbindung prüfen."""
 
 lazy from unittest.mock import Mock
 
 import pytest
+from jwcrypto.common import JWException
 from keycloak import KeycloakAuthenticationError, KeycloakOperationError
 lazy from pytest_mock import MockerFixture
 
 from student.config.keycloak import KeycloakConfig
-from student.security import LoginError, TokenService
+from student.security import AuthorizationError, LoginError, Role, TokenService
 
 # Ausschließlich Dummy für den gemockten Client.
 TEST_SECRET = "test-secret"  # ruff: ignore[hardcoded-password-string]
+TEST_ACCESS = "test-access"
 
 
 @pytest.fixture
@@ -90,3 +92,101 @@ def test_empty_credentials_are_checked_by_keycloak(client_factory: Mock) -> None
     with pytest.raises(LoginError):
         TokenService().token("", "")
     client_factory.return_value.token.assert_called_once_with("", "")
+
+
+@pytest.fixture
+def claims(client_factory: Mock) -> dict[str, object]:
+    """Benutzer-Claims und Client-Rollen für die Token-Auswertung bereitstellen."""
+    client_factory.return_value.client_id = "test-client"
+    result = {
+        "preferred_username": "student",
+        "email": "student@example.com",
+        "family_name": "Mustermann",
+        "given_name": "Max",
+        "resource_access": {"test-client": {"roles": ["student"]}},
+    }
+    client_factory.return_value.decode_token.return_value = result
+    return result
+
+
+@pytest.mark.parametrize(
+    ("roles", "expected"),
+    [
+        (["student"], [Role.STUDENT]),
+        (["admin", "student"], [Role.ADMIN, Role.STUDENT]),
+        (["ADMIN", "Student"], [Role.ADMIN, Role.STUDENT]),
+        ([], []),
+    ],
+)
+def test_user_from_token(
+    client_factory: Mock,
+    claims: dict[str, object],
+    roles: list[str],
+    expected: list[Role],
+) -> None:
+    claims["resource_access"] = {
+        "test-client": {"roles": roles},
+        "other-client": {"roles": ["unknown"]},
+    }
+    claims["realm_access"] = {"roles": ["unknown"]}
+    user = TokenService().get_user_from_token("test-access")
+    assert user.username == "student"
+    assert user.email == "student@example.com"
+    assert user.nachname == "Mustermann"
+    assert user.vorname == "Max"
+    assert user.roles == expected
+    assert user.password is None
+    client_factory.return_value.decode_token.assert_called_once_with(token=TEST_ACCESS)
+
+
+@pytest.mark.parametrize(
+    "claim",
+    ["preferred_username", "email", "family_name", "given_name", "resource_access"],
+)
+def test_missing_user_claim(
+    client_factory: Mock, claims: dict[str, object], claim: str
+) -> None:
+    del claims[claim]
+    with pytest.raises(AuthorizationError) as error:
+        TokenService().get_user_from_token("test-access")
+    assert isinstance(error.value.__cause__, KeyError)
+    client_factory.return_value.decode_token.assert_called_once_with(token=TEST_ACCESS)
+
+
+@pytest.mark.parametrize(
+    "resource_access",
+    [
+        None,
+        [],
+        {},
+        {"other-client": {"roles": ["admin"]}},
+        {"test-client": None},
+        {"test-client": {}},
+        {"test-client": {"roles": None}},
+        {"test-client": {"roles": ["unknown"]}},
+    ],
+)
+def test_invalid_client_roles(
+    client_factory: Mock, claims: dict[str, object], resource_access: object
+) -> None:
+    claims["resource_access"] = resource_access
+    with pytest.raises(AuthorizationError) as error:
+        TokenService().get_user_from_token("test-access")
+    assert isinstance(error.value.__cause__, (KeyError, TypeError))
+    client_factory.return_value.decode_token.assert_called_once_with(token=TEST_ACCESS)
+
+
+@pytest.mark.parametrize("error_type", [JWException, KeyError, TypeError, ValueError])
+def test_token_decode_error(client_factory: Mock, error_type: type[Exception]) -> None:
+    original = error_type("Invalid token")
+    client_factory.return_value.decode_token.side_effect = original
+    with pytest.raises(AuthorizationError) as error:
+        TokenService().get_user_from_token("test-access")
+    assert error.value.__cause__ is original
+
+
+def test_invalid_decoded_token(client_factory: Mock) -> None:
+    client_factory.return_value.decode_token.return_value = None
+    with pytest.raises(AuthorizationError) as error:
+        TokenService().get_user_from_token("test-access")
+    assert isinstance(error.value.__cause__, TypeError)

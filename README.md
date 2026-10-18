@@ -180,8 +180,14 @@ Die Security-Modelle `User` und `Role` sind als Grundlage für die Token-Auswert
 vorhanden. `User` enthält Benutzername, Email, Vorname, Nachname und Rollen;
 das optionale Passwort ist von der Objektdarstellung ausgeschlossen. `Role`
 definiert `ADMIN` und `STUDENT`, passend zu den Keycloak-Client-Rollen.
-Als nächstes folgt `get_user_from_token()` mit `decode_token` und anschließend
-die REST-Anbindung; bisher gibt es keinen Login-Endpunkt oder REST-Zugriffsschutz.
+`TokenService.get_user_from_token()` verwendet `decode_token` mit dessen
+standardmäßig aktivierter Validierung und übernimmt die Benutzer-Claims sowie
+die Rollen des konfigurierten Clients in `User`. JWT-Fehler (`JWException`) und
+Auswertungsfehler (`KeyError`, `TypeError`, `ValueError`) ergeben `AuthorizationError`.
+Unbekannte Rollen werden wie im Beispiel abgelehnt; eine leere Rollenliste ist
+zulässig. Tokens und decodierte Benutzerdaten werden nicht protokolliert.
+Als nächstes folgt die Bearer-Header-Auswertung; bisher gibt es keinen
+Login-Endpunkt oder REST-Zugriffsschutz.
 
 ## Manuelle Tests mit Bruno
 

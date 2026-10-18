@@ -1,6 +1,10 @@
 """Exceptions beim Zugriffsschutz."""
 
 
+class AuthorizationError(Exception):
+    """Exception, falls ein Token oder seine benötigten Claims ungültig sind."""
+
+
 class LoginError(Exception):
     """Exception, falls Benutzername oder Passwort fehlerhaft ist."""
 
