@@ -41,6 +41,11 @@ port = 8843
 admin-password = "p"
 # csv = "extras/compose/postgres/init/student/csv/student.csv": für Keycloak neu laden
 
+[graphql]
+# Browser-Oberfläche unter /graphql; wegen der Content-Security-Policy (wie /docs)
+# evtl. leer, getestet wird mit Bruno
+graphiql-enabled = true
+
 [dev]
 # DB beim Start mit drop.sql, create.sql und den CSV-Testdaten neu laden
 db-populate = true

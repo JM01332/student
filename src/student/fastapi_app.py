@@ -16,6 +16,7 @@ from student.config.dev import (
     keycloak_populate,
     keycloak_populate_router,
 )
+from student.graphql_api import graphql_router
 from student.problem_details import ProblemDetails
 from student.repository import engine
 from student.router import (
@@ -105,6 +106,7 @@ app.include_router(hello_router, prefix="/hello")
 app.include_router(student_router, prefix="/rest")
 app.include_router(student_write_router, prefix="/rest")
 app.include_router(auth_router, prefix="/auth")
+app.include_router(graphql_router, prefix="/graphql")
 
 # Neuladen der DB per REST nur im Dev-Modus, wie im Beispielprojekt
 if dev_db_populate:
