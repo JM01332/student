@@ -1,11 +1,10 @@
 """Gemeinsame Fixtures für die Integrationstests gegen den laufenden Server."""
 
-import os
 import ssl
 from http import HTTPStatus
 from pathlib import Path
 from typing import Final
-lazy from collections.abc import Iterator
+lazy from collections.abc import Callable, Iterator
 
 import pytest
 from httpx import Client, ConnectError, TimeoutException
@@ -15,6 +14,15 @@ BASE_URL: Final = "https://127.0.0.1:8000"
 
 TIMEOUT: Final = 5.0
 """Timeout in Sekunden für jeden Request."""
+
+TOKEN_PATH: Final = "/auth/token"  # ruff: ignore[hardcoded-password-string]
+"""Login an der REST-Schnittstelle wie im Beispielprojekt."""
+
+USERNAME_ADMIN: Final = "admin"
+"""Benutzer im Keycloak-Realm `student` mit der Rolle admin."""
+
+PASSWORD_ADMIN: Final = "p"  # ruff: ignore[hardcoded-password-string]
+"""Lokales Entwicklungspasswort aus der Keycloak-Anleitung."""
 
 _CERTIFICATE: Final = (
     Path(__file__).parents[2]
@@ -28,21 +36,26 @@ _CERTIFICATE: Final = (
 """Selbstsigniertes Zertifikat des Servers, dem die Tests vertrauen."""
 
 
+def _neuer_client() -> Client:
+    """HTTP-Client ohne Token, der dem Server-Zertifikat vertraut."""
+    ssl_context: Final = ssl.create_default_context(cafile=_CERTIFICATE)
+    return Client(base_url=BASE_URL, verify=ssl_context, timeout=TIMEOUT)
+
+
 @pytest.fixture(scope="session")
-def client() -> Iterator[Client]:
-    """HTTP-Client für alle Integrationstests, der das Server-Zertifikat prüft.
+def client_ohne_token() -> Iterator[Client]:
+    """HTTP-Client ohne Authorization-Header, z.B. für Login und 401-Tests.
 
     Bricht den Testlauf mit einem Hinweis ab, falls der Server nicht läuft oder die
     Datenbank nicht erreichbar ist.
     """
-    ssl_context: Final = ssl.create_default_context(cafile=_CERTIFICATE)
-    with Client(base_url=BASE_URL, verify=ssl_context, timeout=TIMEOUT) as client:
+    with _neuer_client() as client:
         try:
             readiness = client.get("/health/readiness").json()
         except ConnectError:
             pytest.exit(
                 f"Server unter {BASE_URL} nicht erreichbar: zuerst"
-                " `uv run python -m student` starten (und PostgreSQL), dann die"
+                " `uv run python -m student` starten (und das Backend), dann die"
                 " Integrationstests ausführen.",
                 returncode=1,
             )
@@ -51,24 +64,49 @@ def client() -> Iterator[Client]:
         if readiness != {"db": "up"}:
             pytest.exit(
                 "Der Server läuft, aber die Datenbank ist nicht erreichbar: PostgreSQL"
-                " mit `docker compose up` in extras/compose/postgres starten.",
+                " und Keycloak mit `docker compose up -d` in extras/compose/backend"
+                " starten.",
                 returncode=1,
             )
-        token = os.environ.get("STUDENT_TEST_TOKEN")
-        if not token:
+        yield client
+
+
+@pytest.fixture(scope="session")
+def login(client_ohne_token: Client) -> Callable[[str, str], str]:
+    """Funktion zum Einloggen, die ein Access Token von Keycloak liefert.
+
+    Wie `login()` im Beispielprojekt: `QUERY /auth/token` mit Benutzername und
+    Passwort an den eigenen Server. Als Fixture, damit Tests sich auch mit anderen
+    Benutzern anmelden können, z.B. `login("student", "p")`.
+    """
+
+    def _login(username: str, password: str) -> str:
+        response: Final = client_ohne_token.request(
+            "QUERY",
+            TOKEN_PATH,
+            json={"username": username, "password": password},
+        )
+        if response.status_code != HTTPStatus.OK:
             pytest.exit(
-                "STUDENT_TEST_TOKEN mit einem aktuellen Admin-Access-Token setzen.",
+                f"Login als {username} mit HTTP {response.status_code}: Läuft"
+                " Keycloak, und steht CLIENT_SECRET in der .env?",
                 returncode=1,
             )
+        return response.json()["token"]
+
+    return _login
+
+
+@pytest.fixture(scope="session")
+def client(login: Callable[[str, str], str]) -> Iterator[Client]:
+    """HTTP-Client mit dem Token des Administrators für alle REST-Tests.
+
+    Das Token wird einmal pro Testlauf geholt; es gilt 30 Minuten und damit
+    deutlich länger als ein Testlauf.
+    """
+    token: Final = login(USERNAME_ADMIN, PASSWORD_ADMIN)
+    with _neuer_client() as client:
         client.headers["Authorization"] = f"Bearer {token}"
-        # Vor dem automatischen DB-Neuladen Authentifizierung und Adminrolle prüfen.
-        probe = client.get("/rest", params={"size": 1})
-        if probe.status_code not in {HTTPStatus.OK, HTTPStatus.NOT_FOUND}:
-            pytest.exit(
-                "Admin-Token nicht verwendbar: GET /rest ergibt "
-                f"HTTP {probe.status_code}. Keycloak und Token prüfen.",
-                returncode=1,
-            )
         yield client
 
 
