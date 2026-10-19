@@ -19,7 +19,7 @@ def _neuer_student_location(client: Client) -> str:
         "nachname": "Loeschen",
         "vorname": "Lea",
         "email": f"lea.{uuid4().hex[:8]}@h-ka.de",
-        "username": "lea",
+        "username": f"lea{uuid4().hex[:8]}",
         "adresse": {"plz": "76133", "ort": "Karlsruhe"},
         "pruefungsleistungen": [
             {"modul": "Softwareengineering", "note": 1.3, "semester": "WS 2026/27"},

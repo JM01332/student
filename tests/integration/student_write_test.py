@@ -9,7 +9,7 @@ lazy from httpx import Client
 
 
 def _neuer_student() -> dict[str, Any]:
-    """Neuer Studierender mit zufälliger Email und Matrikelnummer.
+    """Neuer Studierender mit zufälliger Email, Matrikelnummer und Benutzername.
 
     Zufällige Werte, damit die Tests mehrfach hintereinander laufen können, ohne an
     bereits angelegten Daten zu scheitern (die DB wird nur beim Serverstart neu
@@ -20,7 +20,7 @@ def _neuer_student() -> dict[str, Any]:
         "nachname": "Test",
         "vorname": "Theo",
         "email": f"theo.{uuid4().hex[:8]}@h-ka.de",
-        "username": "theo",
+        "username": f"theo{uuid4().hex[:8]}",
         "adresse": {"plz": "76133", "ort": "Karlsruhe"},
         "pruefungsleistungen": [
             {"modul": "Softwareengineering", "note": 1.3, "semester": "WS 2026/27"},

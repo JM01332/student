@@ -5,34 +5,50 @@ from typing import Final
 from loguru import logger
 
 from student.repository import Session
+from student.security import Role, User
 from student.service.exceptions import (
     EmailExistsError,
+    EmptyUsernameError,
     MatrikelnummerExistsError,
     NotFoundError,
+    UsernameExistsError,
     VersionOutdatedError,
 )
 from student.service.student_dto import StudentDTO
 lazy from student.entity import Student
 lazy from student.repository import StudentRepository
+lazy from student.security import UserService
 
 __all__ = ["StudentWriteService"]
+
+_PASSWORD: Final = "p"  # ruff: ignore[hardcoded-password-string]  # NOSONAR
+"""Startpasswort neuer Benutzer in Keycloak wie im Beispielprojekt."""
 
 
 class StudentWriteService:
     """Service-Klasse mit Geschäftslogik zum Schreiben von Studierendendaten."""
 
-    def __init__(self, repo: StudentRepository) -> None:
-        """Konstruktor mit abhängigem StudentRepository."""
+    def __init__(self, repo: StudentRepository, user_service: UserService) -> None:
+        """Konstruktor mit abhängigem StudentRepository und UserService."""
         self.repo: StudentRepository = repo
+        self.user_service: UserService = user_service
 
     def create(self, student: Student) -> StudentDTO:
-        """Einen neuen Studierenden anlegen.
+        """Einen neuen Studierenden in der DB und als Benutzer in Keycloak anlegen.
+
+        Abweichend vom Beispiel wird zuerst die DB geprüft und erst dann der
+        Keycloak-Benutzer angelegt, damit z.B. eine doppelte Matrikelnummer keinen
+        verwaisten Keycloak-Benutzer hinterlässt. Scheitert danach das Speichern in
+        der DB, bleibt der Keycloak-Benutzer wie im Beispiel bestehen (bekannte
+        Einschränkung).
 
         :param student: Der neue Studierende ohne ID
         :return: Der neu angelegte Studierende mit generierter ID
         :rtype: StudentDTO
+        :raises EmptyUsernameError: Falls der Benutzername fehlt
         :raises EmailExistsError: Falls die Emailadresse bereits existiert
         :raises MatrikelnummerExistsError: Falls die Matrikelnummer bereits existiert
+        :raises UsernameExistsError: Falls der Benutzername in Keycloak existiert
         """
         logger.debug(
             "student={}, adresse={}, pruefungsleistungen={}",
@@ -40,7 +56,12 @@ class StudentWriteService:
             student.adresse,
             student.pruefungsleistungen,
         )
+        username: Final = student.username
+        if not username:
+            raise EmptyUsernameError
+
         with Session() as session:
+            # 1. Prüfungen in der DB
             if self.repo.exists_email(email=student.email, session=session):
                 raise EmailExistsError(email=student.email)
             if self.repo.exists_matrikelnummer(
@@ -49,6 +70,23 @@ class StudentWriteService:
             ):
                 raise MatrikelnummerExistsError(matrikelnummer=student.matrikelnummer)
 
+            # 2. Prüfungen in Keycloak
+            if self.user_service.username_exists(username):
+                raise UsernameExistsError(username)
+            if self.user_service.email_exists(student.email):
+                raise EmailExistsError(email=student.email)
+
+            # 3. Benutzer in Keycloak, 4. Datensatz in der DB
+            self.user_service.create_user(
+                User(
+                    username=username,
+                    email=student.email,
+                    nachname=student.nachname,
+                    vorname=student.vorname,
+                    roles=[Role.STUDENT],
+                    password=_PASSWORD,
+                )
+            )
             student_db: Final = self.repo.create(student=student, session=session)
             student_dto: Final = StudentDTO.from_student(student_db)
             session.commit()

@@ -8,6 +8,7 @@ lazy from pytest_mock import MockerFixture
 
 from student.entity import Adresse, Pruefungsleistung, Student
 from student.repository import StudentRepository
+from student.security import UserService
 from student.service import (
     EmailExistsError,
     MatrikelnummerExistsError,
@@ -46,9 +47,18 @@ def session_mock(mocker: MockerFixture) -> Mock:
 
 
 @pytest.fixture
-def service(repo_mock: Mock) -> StudentWriteService:
-    """Write-Service mit der Attrappe statt des echten Repositorys."""
-    return StudentWriteService(repo=repo_mock)
+def user_service_mock(mocker: MockerFixture) -> Mock:
+    """Attrappe für UserService; Username und Email sind in Keycloak noch frei."""
+    user_service = mocker.Mock(spec=UserService)
+    user_service.username_exists.return_value = False
+    user_service.email_exists.return_value = False
+    return user_service
+
+
+@pytest.fixture
+def service(repo_mock: Mock, user_service_mock: Mock) -> StudentWriteService:
+    """Write-Service mit Attrappen statt Repository und Keycloak."""
+    return StudentWriteService(repo=repo_mock, user_service=user_service_mock)
 
 
 def _neuer_student() -> Student:
