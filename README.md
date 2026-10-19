@@ -175,6 +175,13 @@ vorhanden; lesende REST-Endpunkte, POST, PUT und DELETE prüfen bereits Bearer-T
 Die Anwendung stellt bereits `keycloak_config` mit diesen Verbindungsdaten bereit.
 `CLIENT_SECRET` wird aus der Prozessumgebung gelesen, ersatzweise aus `.env` im
 aktuellen Arbeitsverzeichnis; die Anwendung daher aus dem Projektverzeichnis starten.
+**Abweichung vom Beispiel:** Dort steht das Client Secret in `app.toml`
+(`[keycloak] client-secret`). Bei uns hat jeder Entwickler einen eigenen lokalen
+Keycloak und damit ein eigenes Secret; ein fester Wert in `app.toml` würde nur bei
+einem von beiden funktionieren. Deshalb kommt das Secret aus der `.env`, die nicht
+im Repository liegt. Für das Docker-Image der Anwendung muss `CLIENT_SECRET` dem
+Container später z.B. über `env_file` in Docker Compose übergeben werden.
+
 Das Secret wird nicht in der Konfigurationsdarstellung ausgegeben. Ohne Secret
 bleibt das Feld vorerst leer, damit Unit-Tests und der bisherige App-Betrieb ohne
 Keycloak-Zugang möglich bleiben. Die Konfiguration allein baut keine Verbindung auf.
@@ -301,10 +308,13 @@ Es gibt zwei Arten von Tests, wie im FastAPI-Beispiel:
 - **Integrationstests** (`tests/integration`) schicken mit httpx echte
   HTTPS-Requests an den laufenden Server. Vorher Keycloak, PostgreSQL und den Server
   (`uv run python -m student`) starten; sonst bricht der Testlauf mit einem Hinweis ab. Sie
-  laufen nur lokal. Zusätzlich `STUDENT_TEST_TOKEN` in der Prozessumgebung mit
-  einem aktuellen Admin-Access-Token aus `QUERY /auth/token` setzen. Die Fixture
-  prüft den Zugriff vor dem automatischen Neuladen der Datenbank und bricht bei
-  fehlendem oder abgelehntem Token ab. Token weder speichern noch committen.
+  laufen nur lokal. Wie im Beispiel holen sich die Tests das Token selbst über
+  `QUERY /auth/token`: Die Fixture `client` meldet sich einmal pro Testlauf als
+  `admin` an, die Fixture `login` erlaubt Tests auch andere Benutzer. Schlägt der
+  Login fehl (Keycloak aus oder `CLIENT_SECRET` fehlt), bricht der Lauf mit einem
+  Hinweis ab. `auth_test.py` prüft gegen den echten Keycloak: Login (200 bzw. 401),
+  Requests ohne oder mit verfälschtem Token (401) und eine Suche ohne Rolle
+  `admin` (403).
 
 ```powershell
 uv run pytest tests/unit          # nur Unit-Tests
