@@ -2,6 +2,7 @@
 
 import ssl
 from runpy import run_path
+from typing import Any
 lazy from collections.abc import Callable
 lazy from pathlib import Path
 
@@ -87,3 +88,52 @@ def test_certificate_is_usable(read_config: Callable[[], KeycloakConfig]) -> Non
     context = ssl.create_default_context(cafile=config.verify)
     assert context.verify_mode == ssl.CERT_REQUIRED
     assert context.check_hostname
+
+
+@pytest.fixture
+def read_module(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> Callable[[], dict[str, Any]]:
+    """Wie `read_config`, liefert aber alle Konfigurationswerte des Moduls."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("CLIENT_SECRET", raising=False)
+    monkeypatch.setitem(app_config, "keycloak", {})
+
+    def read() -> dict[str, Any]:
+        return run_path(str(keycloak_module.__file__))
+
+    return read
+
+
+def test_admin_defaults(read_module: Callable[[], dict[str, Any]]) -> None:
+    """Die Admin-API nutzt Server, Realm und Client der OIDC-Konfiguration."""
+    module = read_module()
+    admin_config = module["keycloak_admin_config"]
+    config = module["keycloak_config"]
+    assert admin_config.username == "admin"
+    assert not admin_config.password
+    assert admin_config.server_url == config.server_url
+    assert admin_config.realm_name == config.realm_name
+    assert admin_config.client_id == config.client_id
+    assert admin_config.verify == config.verify
+    assert module["csv_config"] == (
+        "extras/compose/postgres/init/student/csv/student.csv"
+    )
+
+
+def test_admin_toml_settings(
+    read_module: Callable[[], dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Benutzer, Passwort und CSV-Datei kommen aus `[keycloak]` in app.toml."""
+    password = "toml-test-value"  # ruff: ignore[hardcoded-password-string]
+    monkeypatch.setitem(
+        app_config,
+        "keycloak",
+        {"admin": "test-admin", "admin-password": password, "csv": "test.csv"},
+    )
+    module = read_module()
+    admin_config = module["keycloak_admin_config"]
+    assert admin_config.username == "test-admin"
+    assert admin_config.password == password
+    assert password not in repr(admin_config)
+    assert module["csv_config"] == "test.csv"

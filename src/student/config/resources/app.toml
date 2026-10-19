@@ -36,7 +36,13 @@ port = 8843
 # client-id = "student-client"
 # certificate = "certificate.crt": unter resources/keycloak
 # CLIENT_SECRET aus der Umgebung oder .env im Arbeitsverzeichnis
+# Admin-REST-API (Benutzer anlegen/löschen) wie im Beispielprojekt
+# admin = "admin"
+admin-password = "p"
+# csv = "extras/compose/postgres/init/student/csv/student.csv": für Keycloak neu laden
 
 [dev]
 # DB beim Start mit drop.sql, create.sql und den CSV-Testdaten neu laden
 db-populate = true
+# Keycloak-Benutzer beim Start aus der CSV-Datei neu laden (alle außer admin)
+keycloak-populate = true
