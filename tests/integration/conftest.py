@@ -111,14 +111,19 @@ def client(login: Callable[[str, str], str]) -> Iterator[Client]:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def db_neu_laden(client: Client) -> None:
-    """DB vor den Integrationstests einmal mit den Testdaten neu laden.
+def testdaten_neu_laden(client: Client) -> None:
+    """DB und Keycloak-Benutzer vor den Integrationstests einmal neu laden.
 
     `autouse=True`: Die Fixture läuft automatisch, ohne dass ein Test sie anfordert.
     So beginnt jeder Testlauf mit denselben Daten, auch wenn ein vorheriger Lauf
-    z.B. per POST neue Studierende angelegt hat.
+    z.B. per POST neue Studierende (und damit Keycloak-Benutzer) angelegt hat.
     """
     response = client.request("QUERY", "/dev/db_populate")
     assert response.status_code == HTTPStatus.OK, (
         "DB konnte nicht neu geladen werden: Ist `[dev] db-populate = true` gesetzt?"
+    )
+    response = client.request("QUERY", "/dev/keycloak_populate")
+    assert response.status_code == HTTPStatus.OK, (
+        "Keycloak konnte nicht neu geladen werden: Ist `[dev] keycloak-populate ="
+        " true` gesetzt?"
     )

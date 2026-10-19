@@ -8,12 +8,14 @@ lazy from pytest_mock import MockerFixture
 
 from student.entity import Adresse, Pruefungsleistung, Student
 from student.repository import StudentRepository
-from student.security import UserService
+from student.security import Role, UserService
 from student.service import (
     EmailExistsError,
+    EmptyUsernameError,
     MatrikelnummerExistsError,
     NotFoundError,
     StudentWriteService,
+    UsernameExistsError,
     VersionOutdatedError,
 )
 
@@ -148,6 +150,94 @@ def test_create_matrikelnummer_existiert(
     assert err.value.matrikelnummer == "999999"
     repo_mock.create.assert_not_called()
     session_mock.commit.assert_not_called()
+
+
+def test_create_legt_keycloak_benutzer_an(
+    service: StudentWriteService,
+    repo_mock: Mock,
+    user_service_mock: Mock,
+    session_mock: Mock,  # ruff: ignore[unused-function-argument]
+) -> None:
+    """Vor dem DB-Eintrag entsteht ein Keycloak-Benutzer mit der Rolle student."""
+    repo_mock.create.side_effect = _mit_id
+
+    service.create(student=_neuer_student())
+
+    user_service_mock.create_user.assert_called_once()
+    user = user_service_mock.create_user.call_args.args[0]
+    assert user.username == "theo"
+    assert user.email == "theo.test@h-ka.de"
+    assert user.nachname == "Test"
+    assert user.vorname == "Theo"
+    assert user.roles == [Role.STUDENT]
+    assert user.password
+
+
+def test_create_username_existiert(
+    service: StudentWriteService,
+    repo_mock: Mock,
+    user_service_mock: Mock,
+    session_mock: Mock,
+) -> None:
+    """Ein Benutzername, den es in Keycloak schon gibt, verhindert das Anlegen."""
+    user_service_mock.username_exists.return_value = True
+
+    with pytest.raises(UsernameExistsError) as err:
+        service.create(student=_neuer_student())
+
+    assert err.value.username == "theo"
+    user_service_mock.create_user.assert_not_called()
+    repo_mock.create.assert_not_called()
+    session_mock.commit.assert_not_called()
+
+
+def test_create_email_in_keycloak(
+    service: StudentWriteService,
+    repo_mock: Mock,
+    user_service_mock: Mock,
+    session_mock: Mock,  # ruff: ignore[unused-function-argument]
+) -> None:
+    """Eine Email, die nur in Keycloak existiert, verhindert ebenfalls das Anlegen."""
+    user_service_mock.email_exists.return_value = True
+
+    with pytest.raises(EmailExistsError):
+        service.create(student=_neuer_student())
+
+    user_service_mock.create_user.assert_not_called()
+    repo_mock.create.assert_not_called()
+
+
+def test_create_db_vor_keycloak(
+    service: StudentWriteService,
+    repo_mock: Mock,
+    user_service_mock: Mock,
+    session_mock: Mock,  # ruff: ignore[unused-function-argument]
+) -> None:
+    """Scheitert schon die DB-Prüfung, wird Keycloak gar nicht angefragt.
+
+    So entsteht bei einer doppelten Matrikelnummer kein verwaister Keycloak-Benutzer.
+    """
+    repo_mock.exists_matrikelnummer.return_value = True
+
+    with pytest.raises(MatrikelnummerExistsError):
+        service.create(student=_neuer_student())
+
+    user_service_mock.username_exists.assert_not_called()
+    user_service_mock.create_user.assert_not_called()
+
+
+@pytest.mark.parametrize("username", [None, ""])
+def test_create_ohne_username(
+    service: StudentWriteService, user_service_mock: Mock, username: str | None
+) -> None:
+    """Ohne Benutzernamen kann kein Keycloak-Benutzer entstehen."""
+    student = _neuer_student()
+    student.username = username
+
+    with pytest.raises(EmptyUsernameError):
+        service.create(student=student)
+
+    user_service_mock.create_user.assert_not_called()
 
 
 VORHANDENE_ID = 1001

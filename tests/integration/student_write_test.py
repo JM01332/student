@@ -4,6 +4,7 @@ from http import HTTPStatus
 from random import randint
 from typing import Any
 from uuid import uuid4
+lazy from collections.abc import Callable
 
 lazy from httpx import Client
 
@@ -78,3 +79,30 @@ def test_post_matrikelnummer_existiert(client: Client) -> None:
     assert response.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
     assert response.headers["content-type"] == "application/problem+json"
     assert "123456" in response.json()["detail"]
+
+
+def test_post_neuer_benutzer_kann_sich_einloggen(
+    client: Client, client_ohne_token: Client, login: Callable[[str, str], str]
+) -> None:
+    """POST legt auch den Keycloak-Benutzer an: Login und Lesen des eigenen Satzes."""
+    neu = _neuer_student()
+    location = client.post("/rest", json=neu).headers["location"]
+
+    token = login(neu["username"], "p")
+    response = client_ohne_token.get(
+        location, headers={"Authorization": f"Bearer {token}"}
+    )
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()["username"] == neu["username"]
+
+
+def test_post_username_existiert(client: Client) -> None:
+    """Einen Benutzernamen, den es in Keycloak gibt, lehnt der Server mit 422 ab."""
+    neu = _neuer_student() | {"username": "erika"}
+
+    response = client.post("/rest", json=neu)
+
+    assert response.status_code == HTTPStatus.UNPROCESSABLE_CONTENT
+    assert response.headers["content-type"] == "application/problem+json"
+    assert "erika" in response.json()["detail"]

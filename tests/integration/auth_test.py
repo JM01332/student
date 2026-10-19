@@ -95,3 +95,36 @@ def test_suche_als_student(
     )
 
     assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+def _headers_als(login: Callable[[str, str], str], username: str) -> dict[str, str]:
+    """Authorization-Header für einen Benutzer aus den Testdaten."""
+    return {"Authorization": f"Bearer {login(username, PASSWORD)}"}
+
+
+def test_get_by_id_eigener_datensatz(
+    client_ohne_token: Client, login: Callable[[str, str], str]
+) -> None:
+    """Studierende dürfen ihren eigenen Datensatz lesen (erika hat die ID 20)."""
+    headers = _headers_als(login, USERNAME_STUDENT)
+
+    response = client_ohne_token.get("/rest/20", headers=headers)
+
+    assert response.status_code == HTTPStatus.OK
+    assert response.json()["username"] == USERNAME_STUDENT
+
+
+@pytest.mark.parametrize("student_id", [1, 30, 0, 999999])
+def test_get_by_id_nicht_erlaubt(
+    client_ohne_token: Client, login: Callable[[str, str], str], student_id: int
+) -> None:
+    """Fremde und nicht vorhandene IDs: 403 wie im Beispielprojekt.
+
+    Auch bei nicht vorhandenen IDs 403 statt 404, damit Studierende nicht erraten
+    können, welche IDs es gibt.
+    """
+    headers = _headers_als(login, USERNAME_STUDENT)
+
+    response = client_ohne_token.get(f"/rest/{student_id}", headers=headers)
+
+    assert response.status_code == HTTPStatus.FORBIDDEN
