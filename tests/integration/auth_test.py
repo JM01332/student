@@ -13,8 +13,11 @@ lazy from httpx import Client
 
 TOKEN_PATH: Final = "/auth/token"  # ruff: ignore[hardcoded-password-string]
 USERNAME_ADMIN: Final = "admin"
-USERNAME_STUDENT: Final = "student"
-"""Testbenutzer im Realm `student` mit der Rolle student (ohne Admin-Rechte)."""
+USERNAME_STUDENT: Final = "erika"
+"""Studierende aus den Testdaten mit der Rolle student (ohne Admin-Rechte).
+
+Wird beim Neuladen von Keycloak aus der CSV-Datei angelegt.
+"""
 
 PASSWORD: Final = "p"  # ruff: ignore[hardcoded-password-string]
 """Lokales Entwicklungspasswort beider Testbenutzer."""

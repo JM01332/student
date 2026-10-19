@@ -9,8 +9,13 @@ from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.gzip import GZipMiddleware
 from loguru import logger
 
-from student.config import dev_db_populate
-from student.config.dev import db_populate, db_populate_router
+from student.config import dev_db_populate, dev_keycloak_populate
+from student.config.dev import (
+    db_populate,
+    db_populate_router,
+    keycloak_populate,
+    keycloak_populate_router,
+)
 from student.problem_details import ProblemDetails
 from student.repository import engine
 from student.router import (
@@ -32,7 +37,7 @@ from student.service import (
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
-    """DB beim Start im Dev-Modus neu laden und beim Herunterfahren freigeben.
+    """DB und Keycloak beim Start im Dev-Modus neu laden, DB beim Ende freigeben.
 
     Code vor `yield` läuft beim Start des Servers, Code danach beim Herunterfahren.
 
@@ -40,6 +45,8 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     """
     if dev_db_populate:
         db_populate()
+    if dev_keycloak_populate:
+        keycloak_populate()
     try:
         yield
     finally:
@@ -101,6 +108,8 @@ app.include_router(auth_router, prefix="/auth")
 # Neuladen der DB per REST nur im Dev-Modus, wie im Beispielprojekt
 if dev_db_populate:
     app.include_router(db_populate_router, prefix="/dev")
+if dev_keycloak_populate:
+    app.include_router(keycloak_populate_router, prefix="/dev")
 
 
 @app.middleware("http")
