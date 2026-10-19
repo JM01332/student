@@ -2,12 +2,15 @@
 
 from dataclasses import dataclass
 
+import strawberry
+
 lazy from student.entity import Adresse
 
 __all__ = ["AdresseDTO"]
 
 
 @dataclass(eq=False, slots=True, kw_only=True)
+@strawberry.type(name="Adresse")
 class AdresseDTO:
     """DTO-Klasse für die Adresse eines Studierenden."""
 

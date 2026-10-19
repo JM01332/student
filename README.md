@@ -21,6 +21,8 @@ Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
 - `GET /health/liveness` und `GET /health/readiness`: Server bzw. Server und
   Datenbank bereit
 - `QUERY /dev/db_populate`: Datenbank mit den Testdaten neu laden (nur im Dev-Modus, Rolle `admin`)
+- `QUERY /dev/keycloak_populate`: Keycloak-Benutzer aus den Testdaten neu laden
+  (nur im Dev-Modus, Rolle `admin`)
 - `GET /hello/`: Demo-Endpunkt
 - `QUERY /auth/token`: Login mit JSON-Feldern `username` und `password`;
   Antwort mit `token`, `expires_in` und `rollen`
@@ -36,7 +38,8 @@ Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
 `fastapi_app.py` macht daraus die HTTP-Antwort. Der Server läuft über HTTPS mit einem
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
 Die Keycloak-Anbindung einschließlich Login und Rollenschutz für lesende REST-Endpunkte
-sowie POST, PUT, DELETE und DB-Neuladen ist vorhanden; GraphQL und ein Docker-Image
+sowie POST, PUT, DELETE und DB-Neuladen ist vorhanden; die Keycloak-Benutzer passen
+zu den Testdaten und POST legt neue Benutzer an. GraphQL und ein Docker-Image
 der Anwendung sind noch geplant.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
@@ -466,7 +469,8 @@ und Fehlerbehandlung mit `NotFoundError` und ProblemDetails, Pydantic-Response-M
 sowie ETag und `If-None-Match` für GET nach ID und ein Pydantic-Modell für
 die Suchparameter `nachname` und `email` sowie REST-Pagination mit `page` und `size`,
 POST mit Validierung. Aus „Weitere Funktionalitäten“ sind PUT mit `If-Match`
-(Vermeidung von „Lost Updates“) und DELETE umgesetzt.
+(Vermeidung von „Lost Updates“), DELETE sowie Keycloak für OIDC einschließlich
+„Keycloak neu laden“ umgesetzt.
 
 `GET /rest/{id}` liefert die Version als ETag (z.B. `"0"`). Bei einem passenden
 `If-None-Match: "0"` antwortet der Server mit 304 ohne Body und mit ETag.

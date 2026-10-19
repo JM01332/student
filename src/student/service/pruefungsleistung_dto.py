@@ -3,12 +3,15 @@
 from dataclasses import dataclass
 lazy from decimal import Decimal
 
+import strawberry
+
 lazy from student.entity import Pruefungsleistung
 
 __all__ = ["PruefungsleistungDTO"]
 
 
 @dataclass(eq=False, slots=True, kw_only=True)
+@strawberry.type(name="Pruefungsleistung")
 class PruefungsleistungDTO:
     """DTO-Klasse für eine Prüfungsleistung eines Studierenden."""
 

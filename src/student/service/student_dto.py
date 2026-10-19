@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+import strawberry
+
 from student.service.adresse_dto import AdresseDTO
 from student.service.pruefungsleistung_dto import PruefungsleistungDTO
 lazy from student.entity import Student
@@ -10,6 +12,7 @@ __all__ = ["StudentDTO"]
 
 
 @dataclass(eq=False, slots=True, kw_only=True)
+@strawberry.type(name="Student")
 class StudentDTO:
     """DTO-Klasse für gelesene Studierendendaten.
 
