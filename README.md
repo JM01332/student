@@ -26,6 +26,8 @@ Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
 - `GET /hello/`: Demo-Endpunkt
 - `QUERY /auth/token`: Login mit JSON-Feldern `username` und `password`;
   Antwort mit `token`, `expires_in` und `rollen`
+- `POST /graphql`: GraphQL-Queries `student(studentId)` und `studenten(suchparameter)`
+  (siehe [GraphQL](#graphql))
 
 Wird nichts gefunden, antwortet der Server mit 404 im Format ProblemDetails
 (`application/problem+json`, z.B. `{"title": "Not Found", "status_code": 404, ...}`).
@@ -39,8 +41,8 @@ Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
 Die Keycloak-Anbindung einschließlich Login und Rollenschutz für lesende REST-Endpunkte
 sowie POST, PUT, DELETE und DB-Neuladen ist vorhanden; die Keycloak-Benutzer passen
-zu den Testdaten und POST legt neue Benutzer an. GraphQL und ein Docker-Image
-der Anwendung sind noch geplant.
+zu den Testdaten und POST legt neue Benutzer an. Lesen geht auch über GraphQL
+(Strawberry); GraphQL-Mutationen und ein Docker-Image der Anwendung sind noch geplant.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
 
@@ -274,6 +276,32 @@ Wie im Beispiel passen die Keycloak-Benutzer zu den Studierenden in der DB:
   Beispiel: Scheitert das Speichern in der DB nach dem Anlegen in Keycloak, bleibt
   der Keycloak-Benutzer bestehen.
 
+## GraphQL
+
+Neben REST gibt es wie im Beispiel eine GraphQL-Schnittstelle mit Strawberry
+(„Code-first“: das Schema entsteht aus Python-Klassen). Es gibt nur einen Endpunkt,
+`POST /graphql`; im Body steht eine Query, die festlegt, welche Felder geliefert
+werden:
+
+```graphql
+{ student(studentId: "20") { nachname email adresse { ort } } }
+```
+
+- Typen: `StudentDTO`, `AdresseDTO` und `PruefungsleistungDTO` tragen zusätzlich
+  `@strawberry.type` (im Schema `Student`, `Adresse`, `Pruefungsleistung`), die
+  Suche nimmt den Eingabetyp `Suchparameter` (`nachname`, `email`).
+- Resolver in `graphql_api/schema.py` rufen den vorhandenen `StudentService` auf;
+  das Token kommt wie bei REST aus dem `Authorization`-Header. Service und
+  `TokenService` werden wie im Beispiel einmal beim Laden des Moduls erzeugt.
+- Verhalten wie im Beispiel: unbekannte ID ergibt `null`, die Suche ohne Rolle
+  `admin` eine leere Liste (sonst alle Treffer ohne Seiteneinteilung). Fehlender
+  Token oder ein fremder Datensatz erscheinen als Eintrag unter `errors`.
+  GraphQL antwortet auch dann mit HTTP 200.
+- `[graphql] graphiql-enabled` in `app.toml` schaltet die Browser-Oberfläche
+  GraphiQL ein. Wegen der Content-Security-Policy bleibt sie wie `/docs`
+  vermutlich leer; getestet wird mit Bruno (Ordner *GraphQL*) und den
+  Integrationstests (`graphql_test.py`).
+
 ## Manuelle Tests mit Bruno
 
 Die Bruno-Collection liegt in `extras/bruno/student` (OpenCollection-Format wie im
@@ -282,9 +310,9 @@ FastAPI-Beispiel). In Bruno (`C:\Zimmermann\Bruno\Bruno.exe`) über
 selbstsigniert ist, unter *Preferences > General* die Option
 *SSL/TLS Certificate Verification* deaktivieren.
 
-Die Collection hat die Ordner *Token*, *Dev*, *Hello*, *Health* und *REST* (mit
+Die Collection hat die Ordner *Token*, *Dev*, *Hello*, *Health*, *REST* (mit
 *Suche mit ID*, *Suche mit Suchparameter*, *Neu anlegen*, *Aendern*, *Loeschen* und
-*Als Studierende*). *Dev* lädt DB und Keycloak-Benutzer neu; *Als Studierende*
+*Als Studierende*) und *GraphQL* (mit *Query*). *Dev* lädt DB und Keycloak-Benutzer neu; *Als Studierende*
 meldet sich als `erika` an (eigener Datensatz 200, fremder Datensatz und Suche 403).
 Für den Login müssen PostgreSQL, Keycloak mit Student-Realm und die Anwendung
 laufen; `CLIENT_SECRET` muss für die Anwendung gesetzt sein.
@@ -309,7 +337,7 @@ parallel. Beim vollständigen Collection-Run ist kein manuelles Umordnen nötig.
 Für einen Teillauf Login und gewünschte Folge-Requests gemeinsam auswählen;
 Login muss vor DB-Neuladen und den REST-Tests ausgeführt werden. Die
 Token-Weitergabe zwischen separaten Einzelausführungen ist noch nicht geklärt.
-Alle HTTP-Requests haben collectionweit eindeutige Sequenznummern (1–38).
+Alle HTTP-Requests haben collectionweit eindeutige Sequenznummern (1–45).
 Damit ergibt sowohl die Sortierung innerhalb der Ordner als auch die Sortierung
 einer flachen Request-Liste dieselbe Reihenfolge. Neue Requests entsprechend
 einsortieren und die nachfolgenden Sequenznummern anpassen.
@@ -317,7 +345,7 @@ Die Auswahlliste des VS-Code-Runners kann eine abweichende Reihenfolge anzeigen;
 sie entspricht beim vollständigen Collection-Run nicht der Ausführungsreihenfolge.
 Die Ausführung erfolgt in der vorgesehenen Reihenfolge: Token, Dev, Hello,
 Health, REST (Lesen/Suche, POST, PUT, DELETE; Lesen der gelöschten ID nach DELETE;
-zuletzt Zugriffe als Studierende).
+zuletzt Zugriffe als Studierende), GraphQL.
 Der Lauf der ganzen Collection führt zuerst den Login unter *Token*, danach
 das DB-Neuladen unter *Dev* und anschließend die übrigen Tests aus. Die Variable
 `baseUrl` steht weiterhin in `opencollection.yml`. Für den Login über die Anwendung wird kein Client Secret
@@ -469,8 +497,8 @@ und Fehlerbehandlung mit `NotFoundError` und ProblemDetails, Pydantic-Response-M
 sowie ETag und `If-None-Match` für GET nach ID und ein Pydantic-Modell für
 die Suchparameter `nachname` und `email` sowie REST-Pagination mit `page` und `size`,
 POST mit Validierung. Aus „Weitere Funktionalitäten“ sind PUT mit `If-Match`
-(Vermeidung von „Lost Updates“), DELETE sowie Keycloak für OIDC einschließlich
-„Keycloak neu laden“ umgesetzt.
+(Vermeidung von „Lost Updates“), DELETE, Keycloak für OIDC einschließlich
+„Keycloak neu laden“ sowie GraphQL-Queries mit Strawberry umgesetzt.
 
 `GET /rest/{id}` liefert die Version als ETag (z.B. `"0"`). Bei einem passenden
 `If-None-Match: "0"` antwortet der Server mit 304 ohne Body und mit ETag.
@@ -519,7 +547,7 @@ Datenbank neu. Die Integrationstests rufen den Endpunkt vor jedem Testlauf auf, 
 beginnen; in Bruno steht er im Ordner *Dev* nach dem Login im Ordner *Token*.
 Wie im Beispiel ist der Endpunkt auf die Rolle Admin beschränkt.
 
-**Offen, in dieser Reihenfolge:** GraphQL,
+**Offen, in dieser Reihenfolge:** GraphQL-Mutationen,
 Docker sowie Dokumentation und Lasttests (siehe GitHub Project).
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
