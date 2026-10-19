@@ -1,0 +1,11 @@
+info:
+  name: Query
+  type: folder
+  seq: 1
+
+request:
+  auth: inherit
+
+docs:
+  content: Studierendendaten mit GraphQL lesen. Benötigt den Login unter Token (accessToken als admin).
+  type: text/markdown

@@ -1,0 +1,51 @@
+info:
+  name: Student mit ID 20
+  type: graphql
+  seq: 39
+
+graphql:
+  method: POST
+  url: "{{graphqlUrl}}"
+  headers:
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
+  body:
+    query: |-
+      {
+        student(studentId: "20") {
+          id
+          version
+          matrikelnummer
+          nachname
+          vorname
+          email
+          username
+          adresse {
+            plz
+            ort
+          }
+          pruefungsleistungen {
+            modul
+            note
+            semester
+          }
+        }
+      }
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.data.student.nachname
+      operator: eq
+      value: "Musterfrau"
+    - expression: res.body.data.student.adresse.ort
+      operator: isString
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,14 @@
+info:
+  name: GraphQL
+  type: folder
+  seq: 6
+
+request:
+  auth: inherit
+  variables:
+    - name: graphqlUrl
+      value: "{{baseUrl}}/graphql"
+
+docs:
+  content: GraphQL-Schnittstelle mit Strawberry. Ein einziger Endpunkt POST /graphql; auch Fehler kommen mit Status 200 und stehen im Body unter errors.
+  type: text/markdown

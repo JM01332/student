@@ -1,0 +1,32 @@
+info:
+  name: Student ohne Token
+  type: graphql
+  seq: 45
+
+graphql:
+  method: POST
+  url: "{{graphqlUrl}}"
+  body:
+    query: |-
+      {
+        student(studentId: "20") {
+          nachname
+        }
+      }
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.data.student
+      operator: isNull
+    - expression: res.body.errors
+      operator: isArray
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

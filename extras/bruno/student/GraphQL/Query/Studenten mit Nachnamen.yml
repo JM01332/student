@@ -1,0 +1,42 @@
+info:
+  name: Studenten mit Nachnamen
+  type: graphql
+  seq: 41
+
+graphql:
+  method: POST
+  url: "{{graphqlUrl}}"
+  headers:
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
+  body:
+    query: |-
+      query ($nachname: String) {
+        studenten(suchparameter: {nachname: $nachname}) {
+          id
+          nachname
+          email
+        }
+      }
+    variables: |-
+      {
+        "nachname": "muster"
+      }
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.data.studenten
+      operator: isArray
+    - expression: res.body.data.studenten
+      operator: length
+      value: "2"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

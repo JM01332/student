@@ -1,0 +1,33 @@
+info:
+  name: Studenten mit nicht-vorhandenem Nachnamen
+  type: graphql
+  seq: 44
+
+graphql:
+  method: POST
+  url: "{{graphqlUrl}}"
+  headers:
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
+  body:
+    query: |-
+      {
+        studenten(suchparameter: {nachname: "gibt-es-nicht"}) {
+          id
+        }
+      }
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.data.studenten
+      operator: isEmpty
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

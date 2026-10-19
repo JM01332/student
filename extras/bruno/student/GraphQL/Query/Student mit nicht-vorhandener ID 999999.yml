@@ -1,0 +1,33 @@
+info:
+  name: Student mit nicht-vorhandener ID 999999
+  type: graphql
+  seq: 40
+
+graphql:
+  method: POST
+  url: "{{graphqlUrl}}"
+  headers:
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
+  body:
+    query: |-
+      {
+        student(studentId: "999999") {
+          nachname
+        }
+      }
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.data.student
+      operator: isNull
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
