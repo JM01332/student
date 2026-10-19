@@ -1,0 +1,47 @@
+info:
+  name: Neuer Student ohne Rolle admin
+  type: graphql
+  seq: 50
+
+graphql:
+  method: POST
+  url: "{{graphqlUrl}}"
+  headers:
+    - name: Authorization
+      value: "Bearer {{accessTokenStudent}}"
+  body:
+    query: |-
+      mutation {
+        create(
+          studentInput: {
+            matrikelnummer: "888889"
+            nachname: "Graph"
+            vorname: "Gustav"
+            email: "gustav2.graph@h-ka.de"
+            username: "gustav2"
+            adresse: { plz: "76133", ort: "Karlsruhe" }
+            pruefungsleistungen: [
+              { modul: "Softwareengineering", note: "1.3", semester: "WS 2026/27" }
+            ]
+          }
+        ) {
+          id
+        }
+      }
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.data
+      operator: isNull
+    - expression: res.body.errors
+      operator: isArray
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

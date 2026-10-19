@@ -1,0 +1,11 @@
+info:
+  name: Mutation
+  type: folder
+  seq: 2
+
+request:
+  auth: inherit
+
+docs:
+  content: Login und Neuanlegen mit GraphQL. "Neuer Student" klappt nach "DB neu laden" und "Keycloak neu laden" (Ordner Dev) einmal; ohne admin (erika) wird nichts angelegt.
+  type: text/markdown

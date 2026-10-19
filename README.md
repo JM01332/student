@@ -27,6 +27,7 @@ Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
 - `QUERY /auth/token`: Login mit JSON-Feldern `username` und `password`;
   Antwort mit `token`, `expires_in` und `rollen`
 - `POST /graphql`: GraphQL-Queries `student(studentId)` und `studenten(suchparameter)`
+  sowie Mutationen `create(studentInput)` und `login(username, password)`
   (siehe [GraphQL](#graphql))
 
 Wird nichts gefunden, antwortet der Server mit 404 im Format ProblemDetails
@@ -41,8 +42,8 @@ Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
 selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
 Die Keycloak-Anbindung einschließlich Login und Rollenschutz für lesende REST-Endpunkte
 sowie POST, PUT, DELETE und DB-Neuladen ist vorhanden; die Keycloak-Benutzer passen
-zu den Testdaten und POST legt neue Benutzer an. Lesen geht auch über GraphQL
-(Strawberry); GraphQL-Mutationen und ein Docker-Image der Anwendung sind noch geplant.
+zu den Testdaten und POST legt neue Benutzer an. Lesen, Anlegen und Login gehen
+auch über GraphQL (Strawberry); ein Docker-Image der Anwendung ist noch geplant.
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
 
@@ -297,10 +298,24 @@ werden:
   `admin` eine leere Liste (sonst alle Treffer ohne Seiteneinteilung). Fehlender
   Token oder ein fremder Datensatz erscheinen als Eintrag unter `errors`.
   GraphQL antwortet auch dann mit HTTP 200.
+- Mutation `create(studentInput)`: Die Eingabe (`StudentInput` mit `AdresseInput`
+  und `PruefungsleistungInput`) wird wie im Beispiel per
+  `StudentModel.model_validate(asdict(...))` mit denselben pydantic-Regeln wie beim
+  REST-POST geprüft und über `StudentWriteService.create` angelegt (inklusive
+  Keycloak-Benutzer); das Ergebnis ist die neue `id`. Validierungsfehler gibt
+  `PydanticErrorExtension` unter `errors` aus. **Abweichung vom Beispiel:** wie unser
+  REST-POST nur mit Rolle `admin` (im Beispiel ungeschützt).
+- Mutation `login(username, password)`: liefert `token`, `expiresIn` und `roles`.
+  **Abweichung vom Beispiel:** `expiresIn` ist wie beim REST-Login die echte
+  Laufzeit in Sekunden aus Keycloak (1800) statt fest `"1d"`; das Passwort wird
+  nicht protokolliert.
+- Wie im Beispiel werden auch `UserService` und `StudentWriteService` beim Laden
+  von `schema.py` erzeugt; der `UserService` verbindet sich dabei mit Keycloak
+  (ohne Keycloak, z.B. in der CI, wird nur ein Fehler geloggt).
 - `[graphql] graphiql-enabled` in `app.toml` schaltet die Browser-Oberfläche
   GraphiQL ein. Wegen der Content-Security-Policy bleibt sie wie `/docs`
   vermutlich leer; getestet wird mit Bruno (Ordner *GraphQL*) und den
-  Integrationstests (`graphql_test.py`).
+  Integrationstests (`graphql_test.py`, `graphql_mutation_test.py`).
 
 ## Manuelle Tests mit Bruno
 
@@ -312,7 +327,7 @@ selbstsigniert ist, unter *Preferences > General* die Option
 
 Die Collection hat die Ordner *Token*, *Dev*, *Hello*, *Health*, *REST* (mit
 *Suche mit ID*, *Suche mit Suchparameter*, *Neu anlegen*, *Aendern*, *Loeschen* und
-*Als Studierende*) und *GraphQL* (mit *Query*). *Dev* lädt DB und Keycloak-Benutzer neu; *Als Studierende*
+*Als Studierende*) und *GraphQL* (mit *Query* und *Mutation*). *Dev* lädt DB und Keycloak-Benutzer neu; *Als Studierende*
 meldet sich als `erika` an (eigener Datensatz 200, fremder Datensatz und Suche 403).
 Für den Login müssen PostgreSQL, Keycloak mit Student-Realm und die Anwendung
 laufen; `CLIENT_SECRET` muss für die Anwendung gesetzt sein.
@@ -337,7 +352,7 @@ parallel. Beim vollständigen Collection-Run ist kein manuelles Umordnen nötig.
 Für einen Teillauf Login und gewünschte Folge-Requests gemeinsam auswählen;
 Login muss vor DB-Neuladen und den REST-Tests ausgeführt werden. Die
 Token-Weitergabe zwischen separaten Einzelausführungen ist noch nicht geklärt.
-Alle HTTP-Requests haben collectionweit eindeutige Sequenznummern (1–45).
+Alle HTTP-Requests haben collectionweit eindeutige Sequenznummern (1–50).
 Damit ergibt sowohl die Sortierung innerhalb der Ordner als auch die Sortierung
 einer flachen Request-Liste dieselbe Reihenfolge. Neue Requests entsprechend
 einsortieren und die nachfolgenden Sequenznummern anpassen.
@@ -498,7 +513,8 @@ sowie ETag und `If-None-Match` für GET nach ID und ein Pydantic-Modell für
 die Suchparameter `nachname` und `email` sowie REST-Pagination mit `page` und `size`,
 POST mit Validierung. Aus „Weitere Funktionalitäten“ sind PUT mit `If-Match`
 (Vermeidung von „Lost Updates“), DELETE, Keycloak für OIDC einschließlich
-„Keycloak neu laden“ sowie GraphQL-Queries mit Strawberry umgesetzt.
+„Keycloak neu laden“ sowie GraphQL mit Strawberry („Code-first“, Query und
+Mutation) umgesetzt.
 
 `GET /rest/{id}` liefert die Version als ETag (z.B. `"0"`). Bei einem passenden
 `If-None-Match: "0"` antwortet der Server mit 304 ohne Body und mit ETag.
@@ -547,8 +563,8 @@ Datenbank neu. Die Integrationstests rufen den Endpunkt vor jedem Testlauf auf, 
 beginnen; in Bruno steht er im Ordner *Dev* nach dem Login im Ordner *Token*.
 Wie im Beispiel ist der Endpunkt auf die Rolle Admin beschränkt.
 
-**Offen, in dieser Reihenfolge:** GraphQL-Mutationen,
-Docker sowie Dokumentation und Lasttests (siehe GitHub Project).
+**Offen, in dieser Reihenfolge:** Docker sowie Dokumentation und Lasttests
+(siehe GitHub Project).
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
 Prüfungsleistungen (siehe `src/student/entity`).

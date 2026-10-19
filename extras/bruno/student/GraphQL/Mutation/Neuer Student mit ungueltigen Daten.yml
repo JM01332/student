@@ -1,0 +1,47 @@
+info:
+  name: Neuer Student mit ungueltigen Daten
+  type: graphql
+  seq: 49
+
+graphql:
+  method: POST
+  url: "{{graphqlUrl}}"
+  headers:
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
+  body:
+    query: |-
+      mutation {
+        create(
+          studentInput: {
+            matrikelnummer: "12"
+            nachname: "Graph"
+            vorname: "Gustav"
+            email: "gustav.graph@h-ka.de"
+            username: "gustav"
+            adresse: { plz: "7", ort: "Karlsruhe" }
+            pruefungsleistungen: [
+              { modul: "Softwareengineering", note: "1.5", semester: "WS 2026/27" }
+            ]
+          }
+        ) {
+          id
+        }
+      }
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.data
+      operator: isNull
+    - expression: res.body.errors
+      operator: isArray
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
