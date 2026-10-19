@@ -14,6 +14,12 @@ ISSUER = f"{BASE_URL}/realms/student"
 CLIENT_ID = "student-client"
 ROOT = Path(__file__).resolve().parents[3]
 TOKEN_LIFESPAN = 30 * 60
+USERS = {
+    "admin": ("admin@acme.com", "admin"),
+    # wird beim Serverstart aus der CSV-Datei angelegt (Keycloak neu laden)
+    "erika": ("erika.musterfrau@h-ka.de", "student"),
+}
+"""Testzugänge mit erwarteter Email und Client-Rolle."""
 
 
 def require(condition: bool, message: str) -> None:  # ruff: ignore[boolean-type-hint-positional-argument]
@@ -22,7 +28,9 @@ def require(condition: bool, message: str) -> None:  # ruff: ignore[boolean-type
         raise SystemExit(message)
 
 
-def check_user(client: httpx.Client, secret: str, username: str) -> None:
+def check_user(
+    client: httpx.Client, secret: str, username: str, email: str, rolle: str
+) -> None:
     """Token über geprüftes TLS anfordern und erwartete Claims vergleichen."""
     credentials = {"client_id": CLIENT_ID, "client_secret": secret}
     response = client.post(
@@ -49,14 +57,14 @@ def check_user(client: httpx.Client, secret: str, username: str) -> None:
     require(claims.get("iss") == ISSUER, f"{username}: falscher Issuer")
     require(claims.get("azp") == CLIENT_ID, f"{username}: falscher Client")
     require(claims.get("preferred_username") == username, "Falscher Benutzer")
-    require(claims.get("email") == f"{username}@acme.com", f"{username}: falsche Email")
+    require(claims.get("email") == email, f"{username}: falsche Email")
     require(
         claims["exp"] - claims["iat"] == TOKEN_LIFESPAN,
         "Token-Laufzeit ist nicht 30 Minuten",
     )
     resources = claims.get("resource_access", {})
     roles = set(resources.get(CLIENT_ID, {}).get("roles", []))
-    require(roles == {username}, f"{username}: unerwartete Student-Client-Rollen")
+    require(roles == {rolle}, f"{username}: unerwartete Student-Client-Rollen")
     admin_roles = set(resources.get("realm-management", {}).get("roles", []))
     if username == "admin":
         require(
@@ -64,7 +72,7 @@ def check_user(client: httpx.Client, secret: str, username: str) -> None:
             "admin: Verwaltungsrollen fehlen",
         )
     else:
-        require(not admin_roles, "student: unerwartete Verwaltungsrollen")
+        require(not admin_roles, f"{username}: unerwartete Verwaltungsrollen")
     print(
         f"{username}: Token ausgestellt, Claims und Rollen korrekt, Laufzeit 30 Minuten"
     )
@@ -93,8 +101,8 @@ def main() -> None:
             "Discovery: falscher Token-Endpunkt",
         )
         print("student: Discovery korrekt, TLS-Zertifikat geprüft")
-        for username in ("admin", "student"):
-            check_user(client, secret, username)
+        for username, (email, rolle) in USERS.items():
+            check_user(client, secret, username, email, rolle)
 
 
 if __name__ == "__main__":

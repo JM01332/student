@@ -180,16 +180,12 @@ Beispiel. Vorhandene Realms und Benutzer nicht erneut anlegen oder zurücksetzen
 9. Unter **Realm settings → Tokens**: **Access Token Lifespan 30 Minutes** und
    **Access Token Lifespan For Implicit Flow 30 Minutes**, speichern.
 
-Für die separat prüfbare Realm-Einrichtung wird zusätzlich ein normaler
-Testbenutzer manuell angelegt. Das Beispiel erzeugt normale Benutzer später
-über `KeycloakPopulateService` aus den CSV-Daten; diese Funktion ist hier noch
-nicht angebunden.
-
-- **Users → Add user**: Username `student`, Email `student@acme.com`,
-  First name `Test`, Last name `Student`, **Required user actions** leer.
-- Unter **Credentials** Passwort `p` mit **Temporary Off** setzen.
-- Unter **Role mapping** nur die Client-Rolle `student-client → student` ergänzen;
-  `default-roles-student` beibehalten. Keine Verwaltungsrollen zuweisen.
+Normale Testbenutzer werden **nicht** von Hand angelegt. Wie im Beispiel
+(`KeycloakPopulateService`) lädt die Anwendung im Dev-Modus beim Start und per
+`QUERY /dev/keycloak_populate` alle Studierenden aus `student.csv` als Benutzer
+mit der Client-Rolle `student` und dem Passwort `p` (z.B. `erika`). Dabei werden
+alle Benutzer außer `admin` gelöscht; ein früher von Hand angelegter Benutzer
+`student` verschwindet also beim ersten Start.
 
 ## Client Secret und Prüfung
 
@@ -213,7 +209,8 @@ uv run python extras/compose/keycloak/check_realm.py
 
 Das Skript nutzt die bereits vorhandenen Entwicklungsabhängigkeiten `httpx` und
 `python-dotenv`. Es prüft das TLS-Zertifikat aus `tls/certificate.crt`, Discovery,
-die Ausgabe von Access und Refresh Tokens für beide Testbenutzer sowie Issuer,
+die Ausgabe von Access und Refresh Tokens für `admin` und `erika` (nach dem ersten
+Start der Anwendung vorhanden) sowie Issuer,
 Client, Benutzername, Email, Client-Rollen und 30 Minuten Access-Token-Laufzeit.
 Der normale Benutzer darf keine `realm-management`-Rollen haben. Das Skript
 verändert keine Benutzer oder Konfiguration, erzeugt aber Login-Sessions.

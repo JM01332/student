@@ -166,7 +166,9 @@ lokale Installationen liegen unter
 Die Infrastruktur verwendet wie das Beispiel PostgreSQL und die externen Volumes
 `kc_data` und `kc_tls`. Vorhandene Beispiel-Realms werden nicht verändert.
 Der lokale Realm `student` mit Client `student-client`, den Client-Rollen
-`admin` und `student` sowie zwei Testzugängen ist eingerichtet. Die Anleitung
+`admin` und `student` ist eingerichtet. Den Benutzer `admin` legt man einmalig von
+Hand an; die Studierenden aus den Testdaten (z.B. `erika`) lädt die Anwendung
+selbst (siehe [Keycloak-Benutzer](#keycloak-benutzer)). Die Anleitung
 enthält die Einrichtungsschritte und einen Prüfaufruf für Discovery,
 Token-Ausstellung und Rollen. Das Client Secret liegt ausschließlich in der
 lokalen `.env` (Vorlage: `.env.example`). Die OIDC-Anbindung der Anwendung ist
@@ -234,6 +236,7 @@ Folgende REST-Endpunkte verlangen einen gültigen Bearer-Token:
 - `DELETE /rest/{id}`: Rolle `admin` oder `student`
 - `POST /rest`: Rolle `admin` (abweichend vom ungeschützten POST im Beispiel)
 - `QUERY /dev/db_populate`: Rolle `admin` (nur im Dev-Modus)
+- `QUERY /dev/keycloak_populate`: Rolle `admin` (nur im Dev-Modus)
 
 Fehlende oder ungültige Authentifizierung ergibt 401, eine fehlende Rolle 403.
 Auch eine Antwort mit 304 setzt erfolgreichen Datensatzzugriff voraus.
@@ -247,6 +250,27 @@ Der Dev-Endpunkt prüft die Adminrolle vor der Body-Prüfung und dem DB-Neuladen
 Ein nicht-leerer Body ergibt für ADMIN weiterhin 400. Das automatische Laden
 der Testdaten beim App-Start im Dev-Modus bleibt unverändert.
 
+### Keycloak-Benutzer
+
+Wie im Beispiel passen die Keycloak-Benutzer zu den Studierenden in der DB:
+
+- `UserService` (`security/user_service.py`) nutzt die Admin-REST-API von Keycloak
+  über `KeycloakAdmin`. Die Anwendung meldet sich dafür als `admin` im Realm
+  `student` an (`[keycloak] admin` und `admin-password` in `app.toml`; der Benutzer
+  braucht die `realm-management`-Rollen aus der Anleitung).
+- **Neu laden im Dev-Modus** (`[dev] keycloak-populate = true`): Beim Serverstart
+  und per `QUERY /dev/keycloak_populate` werden alle Benutzer außer `admin` gelöscht
+  und aus `student.csv` neu angelegt (Rolle `student`, Passwort `p`). So kann sich
+  z.B. `erika` einloggen und ihren eigenen Datensatz (ID 20) lesen. Die
+  Integrationstests laden DB und Keycloak vor jedem Lauf neu.
+- **POST** legt zusätzlich den Keycloak-Benutzer an. Ein Benutzername oder eine
+  Email, die es in Keycloak schon gibt, ergibt 422 mit ProblemDetails.
+  Abweichend vom Beispiel prüft der Service zuerst die DB (Email, Matrikelnummer)
+  und erst danach Keycloak, damit z.B. eine doppelte Matrikelnummer keinen
+  verwaisten Keycloak-Benutzer hinterlässt. **Bekannte Einschränkung** wie im
+  Beispiel: Scheitert das Speichern in der DB nach dem Anlegen in Keycloak, bleibt
+  der Keycloak-Benutzer bestehen.
+
 ## Manuelle Tests mit Bruno
 
 Die Bruno-Collection liegt in `extras/bruno/student` (OpenCollection-Format wie im
@@ -256,7 +280,9 @@ selbstsigniert ist, unter *Preferences > General* die Option
 *SSL/TLS Certificate Verification* deaktivieren.
 
 Die Collection hat die Ordner *Token*, *Dev*, *Hello*, *Health* und *REST* (mit
-*Suche mit ID*, *Suche mit Suchparameter*, *Neu anlegen*, *Aendern* und *Loeschen*).
+*Suche mit ID*, *Suche mit Suchparameter*, *Neu anlegen*, *Aendern*, *Loeschen* und
+*Als Studierende*). *Dev* lädt DB und Keycloak-Benutzer neu; *Als Studierende*
+meldet sich als `erika` an (eigener Datensatz 200, fremder Datensatz und Suche 403).
 Für den Login müssen PostgreSQL, Keycloak mit Student-Realm und die Anwendung
 laufen; `CLIENT_SECRET` muss für die Anwendung gesetzt sein.
 
@@ -280,14 +306,15 @@ parallel. Beim vollständigen Collection-Run ist kein manuelles Umordnen nötig.
 Für einen Teillauf Login und gewünschte Folge-Requests gemeinsam auswählen;
 Login muss vor DB-Neuladen und den REST-Tests ausgeführt werden. Die
 Token-Weitergabe zwischen separaten Einzelausführungen ist noch nicht geklärt.
-Alle HTTP-Requests haben collectionweit eindeutige Sequenznummern (1–33).
+Alle HTTP-Requests haben collectionweit eindeutige Sequenznummern (1–38).
 Damit ergibt sowohl die Sortierung innerhalb der Ordner als auch die Sortierung
 einer flachen Request-Liste dieselbe Reihenfolge. Neue Requests entsprechend
 einsortieren und die nachfolgenden Sequenznummern anpassen.
 Die Auswahlliste des VS-Code-Runners kann eine abweichende Reihenfolge anzeigen;
 sie entspricht beim vollständigen Collection-Run nicht der Ausführungsreihenfolge.
 Die Ausführung erfolgt in der vorgesehenen Reihenfolge: Token, Dev, Hello,
-Health, REST (Lesen/Suche, POST, PUT, DELETE; Lesen der gelöschten ID nach DELETE).
+Health, REST (Lesen/Suche, POST, PUT, DELETE; Lesen der gelöschten ID nach DELETE;
+zuletzt Zugriffe als Studierende).
 Der Lauf der ganzen Collection führt zuerst den Login unter *Token*, danach
 das DB-Neuladen unter *Dev* und anschließend die übrigen Tests aus. Die Variable
 `baseUrl` steht weiterhin in `opencollection.yml`. Für den Login über die Anwendung wird kein Client Secret
