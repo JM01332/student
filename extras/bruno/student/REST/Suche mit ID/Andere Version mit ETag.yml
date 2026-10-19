@@ -1,7 +1,7 @@
 info:
   name: Andere Version mit ETag
   type: http
-  seq: 12
+  seq: 13
 
 http:
   method: GET

@@ -1,7 +1,7 @@
 info:
   name: Veraltete Version
   type: http
-  seq: 25
+  seq: 26
 
 http:
   method: PUT

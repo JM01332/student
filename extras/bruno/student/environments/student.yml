@@ -4,4 +4,4 @@ variables:
     value: admin
   - secret: true
     name: password
-    description: Passwort des lokalen Keycloak-Benutzers admin
+    description: Passwort der lokalen Keycloak-Testbenutzer (admin und Studierende aus der CSV)

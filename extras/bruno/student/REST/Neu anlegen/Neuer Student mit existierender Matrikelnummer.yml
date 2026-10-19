@@ -1,7 +1,7 @@
 info:
   name: Neuer Student mit existierender Matrikelnummer
   type: http
-  seq: 23
+  seq: 24
 
 http:
   method: POST

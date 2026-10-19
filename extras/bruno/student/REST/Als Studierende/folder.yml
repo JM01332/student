@@ -1,0 +1,11 @@
+info:
+  name: Als Studierende
+  type: folder
+  seq: 7
+
+request:
+  auth: inherit
+
+docs:
+  content: Login als erika (Studierende mit ID 20 aus den Testdaten, Passwort wie admin). Eigener Datensatz 200, fremde Datensätze und die Suche 403. Erika wird beim Serverstart bzw. mit "Keycloak neu laden" angelegt.
+  type: text/markdown

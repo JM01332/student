@@ -1,0 +1,40 @@
+info:
+  name: Token als erika
+  type: http
+  seq: 35
+
+http:
+  method: QUERY
+  url: "{{baseUrl}}/auth/token"
+  body:
+    type: json
+    data: |-
+      {
+          "username": "erika",
+          "password": "{{password}}"
+      }
+
+runtime:
+  scripts:
+    - type: before-request
+      code: |-
+        bru.setVar('accessTokenStudent', '');
+    - type: after-response
+      code: |-
+        const body = res.getBody();
+        if (res.getStatus() === 200 && typeof body?.token === 'string' && body.token.length > 0) {
+          bru.setVar('accessTokenStudent', body.token);
+        }
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.rollen[0]
+      operator: eq
+      value: STUDENT
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,27 @@
+info:
+  name: Eigener Datensatz ID 20
+  type: http
+  seq: 36
+
+http:
+  method: GET
+  url: "{{restUrl}}/20"
+  headers:
+    - name: Authorization
+      value: "Bearer {{accessTokenStudent}}"
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.username
+      operator: eq
+      value: erika
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

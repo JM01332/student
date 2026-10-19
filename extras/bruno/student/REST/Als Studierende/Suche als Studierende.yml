@@ -1,0 +1,24 @@
+info:
+  name: Suche als Studierende
+  type: http
+  seq: 38
+
+http:
+  method: GET
+  url: "{{restUrl}}"
+  headers:
+    - name: Authorization
+      value: "Bearer {{accessTokenStudent}}"
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "403"
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

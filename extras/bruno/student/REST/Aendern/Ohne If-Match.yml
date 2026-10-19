@@ -1,7 +1,7 @@
 info:
   name: Ohne If-Match
   type: http
-  seq: 26
+  seq: 27
 
 http:
   method: PUT

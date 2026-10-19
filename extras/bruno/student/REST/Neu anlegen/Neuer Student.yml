@@ -1,7 +1,7 @@
 info:
   name: Neuer Student
   type: http
-  seq: 20
+  seq: 21
 
 http:
   method: POST

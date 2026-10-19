@@ -1,0 +1,27 @@
+info:
+  name: Keycloak neu laden
+  type: http
+  seq: 3
+
+http:
+  method: QUERY
+  url: "{{devUrl}}/keycloak_populate"
+  headers:
+    - name: Authorization
+      value: "Bearer {{accessToken}}"
+  auth: inherit
+
+runtime:
+  assertions:
+    - expression: res.status
+      operator: eq
+      value: "200"
+    - expression: res.body.keycloak_populate
+      operator: eq
+      value: success
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
