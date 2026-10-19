@@ -2,9 +2,11 @@
 
 __all__ = [
     "EmailExistsError",
+    "EmptyUsernameError",
     "ForbiddenError",
     "MatrikelnummerExistsError",
     "NotFoundError",
+    "UsernameExistsError",
     "VersionOutdatedError",
 ]
 
@@ -31,6 +33,26 @@ class MatrikelnummerExistsError(Exception):
         """
         super().__init__(f"Existierende Matrikelnummer: {matrikelnummer}")
         self.matrikelnummer = matrikelnummer
+
+
+class EmptyUsernameError(ValueError):
+    """Exception, falls der Benutzername fehlt (z.B. beim Anlegen)."""
+
+    def __init__(self) -> None:
+        """Initialisierung von EmptyUsernameError."""
+        super().__init__("username ist None oder leer")
+
+
+class UsernameExistsError(Exception):
+    """Exception, falls der Benutzername in Keycloak bereits existiert."""
+
+    def __init__(self, username: str) -> None:
+        """Initialisierung von UsernameExistsError mit dem Benutzernamen.
+
+        :param username: Bereits existierender Benutzername
+        """
+        super().__init__(f"Existierender Benutzername: {username}")
+        self.username = username
 
 
 class ForbiddenError(Exception):

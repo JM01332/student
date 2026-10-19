@@ -3,9 +3,11 @@
 from student.service.adresse_dto import AdresseDTO
 from student.service.exceptions import (
     EmailExistsError,
+    EmptyUsernameError,
     ForbiddenError,
     MatrikelnummerExistsError,
     NotFoundError,
+    UsernameExistsError,
     VersionOutdatedError,
 )
 from student.service.pruefungsleistung_dto import PruefungsleistungDTO
@@ -16,6 +18,7 @@ from student.service.student_write_service import StudentWriteService
 __all__ = [
     "AdresseDTO",
     "EmailExistsError",
+    "EmptyUsernameError",
     "ForbiddenError",
     "MatrikelnummerExistsError",
     "NotFoundError",
@@ -23,5 +26,6 @@ __all__ = [
     "StudentDTO",
     "StudentService",
     "StudentWriteService",
+    "UsernameExistsError",
     "VersionOutdatedError",
 ]

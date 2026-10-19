@@ -31,6 +31,7 @@ from student.service import (
     ForbiddenError,
     MatrikelnummerExistsError,
     NotFoundError,
+    UsernameExistsError,
     VersionOutdatedError,
 )
 
@@ -188,6 +189,24 @@ def matrikelnummer_exists_error_handler(
 
     :param _request: Request-Objekt (hier nicht benötigt)
     :param err: Exception, falls die Matrikelnummer bereits existiert
+    :return: Response mit Statuscode 422 und ProblemDetails
+    :rtype: Response
+    """
+    return ProblemDetails.create(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail=str(err),
+    ).to_response()
+
+
+@app.exception_handler(UsernameExistsError)
+def username_exists_error_handler(
+    _request: Request,
+    err: UsernameExistsError,
+) -> Response:
+    """Errorhandler für UsernameExistsError beim Anlegen.
+
+    :param _request: Request-Objekt (hier nicht benötigt)
+    :param err: Exception, falls der Benutzername in Keycloak bereits existiert
     :return: Response mit Statuscode 422 und ProblemDetails
     :rtype: Response
     """
