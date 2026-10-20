@@ -73,7 +73,8 @@ uv sync --all-groups
 
 Das Paket wird dabei aus `src/student/` installiert. Zur Laufzeit werden FastAPI,
 Uvicorn, loguru, SQLAlchemy, psycopg, python-dotenv und python-keycloak benötigt,
-für Tests und Hilfsskripte pytest, pytest-mock und httpx sowie Ruff und ty für die Codeprüfung.
+für Tests und Hilfsskripte pytest, pytest-mock und httpx sowie Ruff und ty für die Codeprüfung,
+für die Dokumentation (Gruppe `doc`) MkDocs mit Material und mkdocstrings.
 `uv.lock` hält die aufgelösten Versionen fest.
 
 Für OWASP Dependency Check wird eine lokale `.env` benötigt (siehe
@@ -412,6 +413,34 @@ fehlschlägt.
 Unit-Tests in `tests/unit` testen einzelne Klassen wie den Service mit Mocks
 (`pytest-mock`) statt echter Abhängigkeiten.
 
+## Dokumentation mit MkDocs
+
+Wie im Beispiel wird die Dokumentation mit MkDocs und dem Theme
+*Material for MkDocs* erzeugt (`mkdocs.yml`, Seiten unter `docs/`):
+
+```powershell
+uv run mkdocs serve   # Webserver mit Live-Reload: http://localhost:8001
+uv run mkdocs build   # statisches HTML im Ordner site/ (nicht im Repository)
+```
+
+- **API-Dokumentation:** Die Seiten unter `docs/modules/` bestehen nur aus einer
+  Zeile wie `::: student.router`. Das Plugin mkdocstrings liest daraus die
+  Docstrings (Stil `:param ...:` / `:return:`, in `mkdocs.yml` als
+  `docstring_style: sphinx`) der Elemente, die das Paket in `__all__` exportiert.
+  Der Quellcode wird dabei nur gelesen, nicht ausgeführt; Server und Datenbank
+  müssen nicht laufen.
+- `strict: true`: Warnungen, z.B. zu fehlerhaften Docstrings oder Links, brechen den
+  Build ab.
+- **Port 8001** statt des Standards 8000 (`dev_addr` in `mkdocs.yml`), damit die
+  Anwendung parallel laufen kann. Im Browser `http://localhost:8001` statt
+  `127.0.0.1` verwenden: Die Anwendung sendet wie im Beispiel den Header HSTS, der
+  den Browser für den Host `127.0.0.1` auf allen Ports auf HTTPS festlegt; MkDocs
+  spricht nur HTTP (sonst `ERR_SSL_PROTOCOL_ERROR`).
+- Versionen wie im Beispiel, u.a. `mkdocs>=1.6.1,<2.0.0`. Der Hinweis von
+  Material zu MkDocs 2.0 beim Build betrifft uns deshalb nicht.
+- Diagramme mit PlantUML (Use Cases, Komponenten, Schichten, ER-Diagramm) folgen
+  mit der Architekturdokumentation (AsciiDoctor und PlantUML).
+
 ## Continuous Integration
 
 Der Workflow [CI](.github/workflows/ci.yml) führt bei Push und Pull Request auf
@@ -513,8 +542,8 @@ sowie ETag und `If-None-Match` für GET nach ID und ein Pydantic-Modell für
 die Suchparameter `nachname` und `email` sowie REST-Pagination mit `page` und `size`,
 POST mit Validierung. Aus „Weitere Funktionalitäten“ sind PUT mit `If-Match`
 (Vermeidung von „Lost Updates“), DELETE, Keycloak für OIDC einschließlich
-„Keycloak neu laden“ sowie GraphQL mit Strawberry („Code-first“, Query und
-Mutation) umgesetzt.
+„Keycloak neu laden“, GraphQL mit Strawberry („Code-first“, Query und
+Mutation) sowie die Dokumentation mit MkDocs (einschließlich Docstrings) umgesetzt.
 
 `GET /rest/{id}` liefert die Version als ETag (z.B. `"0"`). Bei einem passenden
 `If-None-Match: "0"` antwortet der Server mit 304 ohne Body und mit ETag.
@@ -563,8 +592,8 @@ Datenbank neu. Die Integrationstests rufen den Endpunkt vor jedem Testlauf auf, 
 beginnen; in Bruno steht er im Ordner *Dev* nach dem Login im Ordner *Token*.
 Wie im Beispiel ist der Endpunkt auf die Rolle Admin beschränkt.
 
-**Offen, in dieser Reihenfolge:** Docker sowie Dokumentation und Lasttests
-(siehe GitHub Project).
+**Offen, in dieser Reihenfolge:** Docker, Mail, Architekturdokumentation mit
+AsciiDoctor und PlantUML, Lasttests und Library Skills (siehe GitHub Project).
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
 Prüfungsleistungen (siehe `src/student/entity`).
