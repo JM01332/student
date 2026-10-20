@@ -1,0 +1,66 @@
+# Dokumentation mit MkDocs, aufgebaut wie im FastAPI-Beispiel
+# Aufruf:   uv run mkdocs serve     (Webserver mit Live-Reload)
+#           uv run mkdocs build     (statisches HTML im Ordner site/)
+
+# https://www.mkdocs.org/user-guide
+
+site_name: student
+
+# Port 8001 statt des Standards 8000, damit die Anwendung parallel laufen kann
+dev_addr: 127.0.0.1:8001
+
+nav:
+  - Start: index.md
+
+theme:
+  name: material
+  # https://squidfunk.github.io/mkdocs-material/setup/setting-up-navigation
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.path
+    - navigation.top
+    - toc.follow
+  palette:
+    # https://squidfunk.github.io/mkdocs-material/setup/changing-the-colors
+    # automatischer Hell-/Dunkelmodus nach Systemeinstellung, umschaltbar
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Hellen Modus einschalten
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Dunklen Modus einschalten
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Systemeinstellung verwenden
+  language: de
+
+markdown_extensions:
+  - toc:
+      permalink: true
+
+watch: [docs, mkdocs.yml, src/student]
+# Warnungen (z.B. fehlerhafte Docstrings oder Links) brechen den Build ab
+strict: true
+
+plugins:
+  # https://squidfunk.github.io/mkdocs-material/setup/setting-up-site-search
+  - search
+  # https://mkdocstrings.github.io/python/usage
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [src]
+          options:
+            # Docstrings mit :param ...: und :return: wie im Beispiel
+            docstring_style: sphinx
+            show_source: false
+            show_docstring_modules: true
+            show_docstring_classes: true
+            show_docstring_functions: true

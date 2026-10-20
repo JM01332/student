@@ -25,3 +25,6 @@ log/
 
 # Report von OWASP Dependency Check
 dependency-check-report.html
+
+# Von MkDocs generierte HTML-Dokumentation (uv run mkdocs build)
+site/
