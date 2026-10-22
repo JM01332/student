@@ -413,6 +413,36 @@ fehlschlägt.
 Unit-Tests in `tests/unit` testen einzelne Klassen wie den Service mit Mocks
 (`pytest-mock`) statt echter Abhängigkeiten.
 
+## Lasttests mit Locust
+
+Wie im Beispiel steht der Lasttest in `tests/lasttest/locustfile.py`. Jeder
+simulierte Benutzer holt sich beim Start einen Token als `admin` (Login per
+`QUERY /auth/token`) und schickt danach nur lesende Requests: Suche nach ID,
+nach einem Teil des Nachnamens und nach Email, gewichtet im Verhältnis 100 : 200 : 150.
+pytest sammelt die Datei nicht ein (`testpaths` in `pyproject.toml`).
+
+Voraussetzung: PostgreSQL, Keycloak und der Server laufen (siehe oben). Dann:
+
+```powershell
+uvx locust -f .\tests\lasttest\locustfile.py
+```
+
+Im Browser `http://localhost:8089` öffnen und z.B. eintragen:
+
+- Number of users: `50`
+- Ramp Up (users started/second): `5`
+- Host: `https://localhost:8000`
+
+Mit *Start* beginnt der Test; die Seite zeigt Requests pro Sekunde, Antwortzeiten
+und Fehler. Abweichend vom Beispiel gibt der Test die gelesenen IDs nicht mit
+`print` aus, weil das nur das Terminal füllt und den Test bremst.
+
+Bei der Bewertung bedenken: Server, Datenbank, Keycloak und Locust laufen alle auf
+demselben Notebook, über HTTPS und mit ausführlichem Logging. Für
+aussagekräftigere Werte in `src/student/config/resources/app.toml`
+`debug-level = false` und `log-statements = false` setzen (danach Server neu
+starten).
+
 ## Dokumentation mit MkDocs
 
 Wie im Beispiel wird die Dokumentation mit MkDocs und dem Theme
@@ -438,8 +468,6 @@ uv run mkdocs build   # statisches HTML im Ordner site/ (nicht im Repository)
   spricht nur HTTP (sonst `ERR_SSL_PROTOCOL_ERROR`).
 - Versionen wie im Beispiel, u.a. `mkdocs>=1.6.1,<2.0.0`. Der Hinweis von
   Material zu MkDocs 2.0 beim Build betrifft uns deshalb nicht.
-- Diagramme mit PlantUML (Use Cases, Komponenten, Schichten, ER-Diagramm) folgen
-  mit der Architekturdokumentation (AsciiDoctor und PlantUML).
 
 ## Library Skills
 
@@ -611,8 +639,7 @@ Datenbank neu. Die Integrationstests rufen den Endpunkt vor jedem Testlauf auf, 
 beginnen; in Bruno steht er im Ordner *Dev* nach dem Login im Ordner *Token*.
 Wie im Beispiel ist der Endpunkt auf die Rolle Admin beschränkt.
 
-**Offen, in dieser Reihenfolge:** Docker, Mail, Architekturdokumentation mit
-AsciiDoctor und PlantUML, Lasttests und Library Skills (siehe GitHub Project).
+**Offen:** Docker, Mail und Lasttests (siehe GitHub Project).
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
 Prüfungsleistungen (siehe `src/student/entity`).
