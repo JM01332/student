@@ -43,7 +43,10 @@ selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
 Die Keycloak-Anbindung einschließlich Login und Rollenschutz für lesende REST-Endpunkte
 sowie POST, PUT, DELETE und DB-Neuladen ist vorhanden; die Keycloak-Benutzer passen
 zu den Testdaten und POST legt neue Benutzer an. Lesen, Anlegen und Login gehen
-auch über GraphQL (Strawberry); ein Docker-Image der Anwendung ist noch geplant.
+auch über GraphQL (Strawberry). Ein Dockerfile mit `python:3.15-trixie` ist
+vorhanden; Image-Build und Python-Aufruf im Container sind geprüft. App-Compose
+und der vollständige App-Start im Container stehen noch aus (siehe
+[Container-Anleitung](extras/compose/student/ReadMe.md)).
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
 
@@ -189,7 +192,9 @@ aktuellen Arbeitsverzeichnis; die Anwendung daher aus dem Projektverzeichnis sta
 Keycloak und damit ein eigenes Secret; ein fester Wert in `app.toml` würde nur bei
 einem von beiden funktionieren. Deshalb kommt das Secret aus der `.env`, die nicht
 im Repository liegt. Für das Docker-Image der Anwendung muss `CLIENT_SECRET` dem
-Container später z.B. über `env_file` in Docker Compose übergeben werden.
+Container später über `environment` in Docker Compose übergeben werden;
+`--env-file` stellt dafür die Werte aus der Root-`.env` bereit (siehe
+[Container-Anleitung](extras/compose/student/ReadMe.md)).
 
 Das Secret wird nicht in der Konfigurationsdarstellung ausgegeben. Ohne Secret
 bleibt das Feld vorerst leer, damit Unit-Tests und der bisherige App-Betrieb ohne

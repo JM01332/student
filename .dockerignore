@@ -1,0 +1,13 @@
+# Nur die für den Build benötigten Dateien übertragen.
+**
+!README.md
+!pyproject.toml
+!uv.lock
+!src/
+!src/**
+
+**/__pycache__/
+**/*.pyc
+**/.env
+**/.env.*
+src/student/config/resources/tls/key.pem

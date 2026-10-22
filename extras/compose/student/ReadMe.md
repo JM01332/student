@@ -2,9 +2,44 @@
 
 `app.toml` enthält die Konfiguration für die Student-Anwendung im gemeinsamen
 Docker-Netz `acme-network`. Die Datei wird beim lokalen Start mit `uv run student`
-nicht verwendet. Sie ist für den späteren App-Service aus Issue #43 vorbereitet;
-ein Dockerfile (#42) und eine ausführbare Compose-Datei für diesen Service fehlen
-noch. Image und Python-Version müssen zuerst feststehen.
+nicht verwendet. Sie ist für den späteren App-Service aus Issue #43 vorbereitet.
+Das Dockerfile (#42) liegt im Projektverzeichnis und verwendet das normale
+offizielle Image `python:3.15-trixie`. Die ausführbare Compose-Datei für diesen
+Service (#43) fehlt noch.
+
+## Image bauen
+
+Im Projektverzeichnis mit laufendem Docker Desktop (Linux-Container):
+
+```powershell
+docker build --tag student:local .
+```
+
+Build und Laufzeit verwenden dieselbe Python-3.15-Basis. uv 0.12.23 installiert
+die Laufzeitabhängigkeiten aus `uv.lock` und das Paket ohne Editable-Modus.
+Entwicklungs-, Dokumentations- und Lint-Abhängigkeiten werden nicht installiert.
+Das Laufzeit-Image übernimmt nur die fertige `.venv`; die Anwendung läuft als
+Benutzer `app` mit UID/GID 10000. `/opt/app/log` ist für ihn schreibbar.
+Bei einem späteren Bind-Mount gelten die Berechtigungen des Host-Verzeichnisses.
+
+`.dockerignore` beschränkt den Build-Kontext auf Quellcode und Build-Metadaten.
+Der private TLS-Schlüssel und `.env` werden nicht ins Image kopiert.
+Die öffentlichen Zertifikate, SQL-Dateien und die Standard-TOML werden als
+Paketressourcen installiert. Der Tag `3.15-trixie` folgt den Python-3.15-Updates;
+`PYTHON_IMAGE` kann beim Build auf einen konkreten Tag oder Digest gesetzt werden.
+
+Nach erfolgreichem Build lässt sich der Interpreter ohne App-Start prüfen:
+
+```powershell
+docker run --rm --entrypoint python student:local --version
+```
+
+Der Image-Build als `student:local` und der Interpreter-Aufruf im Container
+sind erfolgreich geprüft; das gebaute Image verwendet Python 3.15.1.
+Die Paketressourcen und der vollständige App-Start im Container sind noch
+nicht geprüft. Für den App-Start
+werden zusätzlich die unten beschriebenen Mounts, das Secret und die
+Backend-Dienste benötigt; der gemeinsame Start folgt im Compose-Paket.
 
 Die Anwendung bindet im Container an `0.0.0.0:8000`. PostgreSQL ist dort unter
 `postgres:5432`, Keycloak unter `https://keycloak:8443` erreichbar. `student` ist
@@ -19,9 +54,7 @@ neu geladen. Die Konfiguration ist für die lokale Entwicklungsumgebung gedacht.
 
 Wie im Beispiel soll die Anwendung unter `/opt/app` mit einer dortigen `.venv`
 installiert werden. `RESOURCES` in der folgenden Tabelle steht für
-`/opt/app/.venv/lib/pythonX.Y/site-packages/student/config/resources`.
-`X.Y` muss beim Erstellen der Compose-Datei durch die tatsächliche Python-Version
-des Images ersetzt werden; es ist keine konfigurierte Umgebungsvariable.
+`/opt/app/.venv/lib/python3.15/site-packages/student/config/resources`.
 Quellpfade gelten relativ zu diesem Verzeichnis.
 
 | Quelle | Ziel im App-Container | Zugriff |
