@@ -1,0 +1,41 @@
+# Vorbereitung für die Anwendung im Docker-Netz acme-network.
+# Lokale Entwicklungsdaten wie beim Start auf dem Host-Rechner.
+
+[server]
+host-binding = "0.0.0.0"
+port = 8000
+
+[tls]
+key = "key.pem"
+certificate = "certificate.crt"
+
+[logger]
+debug-level = true
+
+[db]
+name = "student"
+username = "student"
+password = "p"
+password-admin = "p"
+host = "postgres"
+log-statements = true
+
+[keycloak]
+schema = "https"
+host = "keycloak"
+port = 8443
+realm = "student"
+client-id = "student-client"
+certificate = "certificate.crt"
+# CLIENT_SECRET wird beim Containerstart als Umgebungsvariable übergeben.
+admin = "admin"
+admin-password = "p"
+csv = "/csv/student.csv"
+
+[graphql]
+graphiql-enabled = true
+
+[dev]
+# Achtung: Beim Start werden DB-Testdaten und Keycloak-Benutzer neu geladen.
+db-populate = true
+keycloak-populate = true
