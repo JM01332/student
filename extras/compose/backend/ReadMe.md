@@ -42,3 +42,7 @@ Die bisherigen Einstiegspunkte bleiben nutzbar: Im Ordner `postgres` startet
 `docker compose up` nur PostgreSQL, im Ordner `keycloak` beide Dienste.
 Für den gemeinsamen Betrieb vorzugsweise diesen Backend-Ordner verwenden.
 Alle drei Einstiegspunkte verwenden denselben Projektnamen `student`.
+
+Für die Anwendung als Container einschließlich beider Backends den
+[App-Einstieg](../student/ReadMe.md) verwenden. Dieser Backend-Einstieg ist für
+den Betrieb mit einer lokal gestarteten Anwendung vorgesehen.

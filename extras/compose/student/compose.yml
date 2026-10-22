@@ -1,0 +1,76 @@
+# Aufruf aus diesem Verzeichnis: docker compose --env-file ../../../.env up
+---
+name: student
+
+include:
+  - path: ../backend/compose.yml
+
+services:
+  student:
+    image: student:local
+    build:
+      context: ../../..
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    stop_signal: SIGINT
+    ports:
+      - published: 8000
+        target: 8000
+    volumes:
+      - type: bind
+        source: ./app.toml
+        target: /opt/app/.venv/lib/python3.15/site-packages/student/config/resources/app.toml
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../../../log
+        target: /opt/app/log
+      - type: bind
+        source: ../postgres/init/student/csv/student.csv
+        target: /csv/student.csv
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ../../../src/student/config/resources/tls/key.pem
+        target: /opt/app/.venv/lib/python3.15/site-packages/student/config/resources/tls/key.pem
+        read_only: true
+        bind:
+          create_host_path: false
+    environment:
+      CLIENT_SECRET: ${CLIENT_SECRET:?CLIENT_SECRET muss gesetzt sein}
+    networks: [acme-network]
+    hostname: student
+    container_name: student
+    cap_drop: [ALL]
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import json, ssl, sys, urllib.request;
+          context = ssl.create_default_context(cafile='/opt/app/.venv/lib/python3.15/site-packages/student/config/resources/tls/certificate.crt');
+          response = urllib.request.urlopen('https://localhost:8000/health/readiness', context=context, timeout=3);
+          sys.exit(0 if json.load(response).get('db') == 'up' else 1)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "1.0"
+          memory: 1G
+
+networks:
+  acme-network:
+    name: acme-network

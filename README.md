@@ -47,8 +47,10 @@ auch über GraphQL (Strawberry). Ein Dockerfile mit `python:3.15-trixie` ist
 vorhanden; Image-Build, Python-Aufruf, Paketressourcen und Nonroot-Schreibzugriff
 auf das interne Logverzeichnis sind geprüft. Der Container-Smoke-Test bestätigt
 App-Start, Mount-Rechte, Keycloak-TLS-Discovery und HTTPS-Liveness/DB-Readiness
-bei deaktiviertem Daten-Neuladen. App-Compose und der gemeinsame Start stehen
-noch aus (siehe
+bei deaktiviertem Daten-Neuladen. App-Compose mit Backend-Include, Mounts,
+Secret-Übergabe und HTTPS-Readiness-Check ist vorhanden und statisch geprüft;
+Compose-Build und gemeinsamer Betrieb sind erfolgreich geprüft. Alle drei Dienste
+sind `healthy`, einschließlich HTTPS-Readiness der App mit DB-Zugriff (siehe
 [Container-Anleitung](extras/compose/student/ReadMe.md)).
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
@@ -195,7 +197,7 @@ aktuellen Arbeitsverzeichnis; die Anwendung daher aus dem Projektverzeichnis sta
 Keycloak und damit ein eigenes Secret; ein fester Wert in `app.toml` würde nur bei
 einem von beiden funktionieren. Deshalb kommt das Secret aus der `.env`, die nicht
 im Repository liegt. Für das Docker-Image der Anwendung muss `CLIENT_SECRET` dem
-Container später über `environment` in Docker Compose übergeben werden;
+Container über `environment` in Docker Compose übergeben werden;
 `--env-file` stellt dafür die Werte aus der Root-`.env` bereit (siehe
 [Container-Anleitung](extras/compose/student/ReadMe.md)).
 
@@ -647,7 +649,7 @@ Datenbank neu. Die Integrationstests rufen den Endpunkt vor jedem Testlauf auf, 
 beginnen; in Bruno steht er im Ordner *Dev* nach dem Login im Ordner *Token*.
 Wie im Beispiel ist der Endpunkt auf die Rolle Admin beschränkt.
 
-**Offen:** Docker, Mail und Lasttests (siehe GitHub Project).
+**Offen:** Mail und Lasttests (siehe GitHub Project).
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
 Prüfungsleistungen (siehe `src/student/entity`).
