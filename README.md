@@ -441,6 +441,25 @@ uv run mkdocs build   # statisches HTML im Ordner site/ (nicht im Repository)
 - Diagramme mit PlantUML (Use Cases, Komponenten, Schichten, ER-Diagramm) folgen
   mit der Architekturdokumentation (AsciiDoctor und PlantUML).
 
+## Library Skills
+
+Einige Bibliotheken liefern im Paket Anleitungen für KI-Coding-Agenten mit
+(*Skills*, Datei `SKILL.md` mit Verweisen). Derzeit ist das FastAPI unter
+`.venv\Lib\site-packages\fastapi\.agents\skills\fastapi\`. Das Werkzeug
+`library-skills` sucht diese Skills in den installierten Paketen und legt sie im
+Projekt unter `.agents/skills/` ab, wo Agenten wie Claude Code oder Copilot sie finden:
+
+```powershell
+uvx library-skills install --all --copy
+```
+
+- `--all`: alle gefundenen Skills ohne Rückfrage installieren
+- `--copy`: Dateien kopieren statt verlinken, damit sie ins Repository kommen und
+  unter Windows keine Symlinks nötig sind
+
+Die Dateien unter `.agents/` werden erzeugt und nicht von Hand geändert. Nach einem
+Update von FastAPI den Befehl erneut ausführen.
+
 ## Continuous Integration
 
 Der Workflow [CI](.github/workflows/ci.yml) führt bei Push und Pull Request auf
