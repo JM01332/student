@@ -44,8 +44,11 @@ Die Keycloak-Anbindung einschließlich Login und Rollenschutz für lesende REST-
 sowie POST, PUT, DELETE und DB-Neuladen ist vorhanden; die Keycloak-Benutzer passen
 zu den Testdaten und POST legt neue Benutzer an. Lesen, Anlegen und Login gehen
 auch über GraphQL (Strawberry). Ein Dockerfile mit `python:3.15-trixie` ist
-vorhanden; Image-Build und Python-Aufruf im Container sind geprüft. App-Compose
-und der vollständige App-Start im Container stehen noch aus (siehe
+vorhanden; Image-Build, Python-Aufruf, Paketressourcen und Nonroot-Schreibzugriff
+auf das interne Logverzeichnis sind geprüft. Der Container-Smoke-Test bestätigt
+App-Start, Mount-Rechte, Keycloak-TLS-Discovery und HTTPS-Liveness/DB-Readiness
+bei deaktiviertem Daten-Neuladen. App-Compose und der gemeinsame Start stehen
+noch aus (siehe
 [Container-Anleitung](extras/compose/student/ReadMe.md)).
 Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
 mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.

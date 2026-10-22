@@ -36,8 +36,10 @@ docker run --rm --entrypoint python student:local --version
 
 Der Image-Build als `student:local` und der Interpreter-Aufruf im Container
 sind erfolgreich geprüft; das gebaute Image verwendet Python 3.15.1.
-Die Paketressourcen und der vollständige App-Start im Container sind noch
-nicht geprüft. Für den App-Start
+Die sechs Paketressourcen (TOML, drei Zertifikate und zwei SQL-Dateien) sind
+im Image lesbar; UID/GID 10000 und Schreibzugriff auf `/opt/app/log` sind geprüft.
+Privater TLS-Schlüssel und `.env` sind im Image nicht vorhanden.
+Der App-Start mit deaktiviertem Daten-Neuladen ist erfolgreich geprüft. Für den App-Start
 werden zusätzlich die unten beschriebenen Mounts, das Secret und die
 Backend-Dienste benötigt; der gemeinsame Start folgt im Compose-Paket.
 
@@ -69,7 +71,7 @@ Das HTTPS-Zertifikat `tls/certificate.crt`, das PostgreSQL-Vertrauenszertifikat
 `keycloak/certificate.crt` sowie die SQL-Dateien unter `postgresql` müssen als
 Paketressourcen im Image enthalten sein. Der private HTTPS-Schlüssel wird wie
 im Beispiel zur Laufzeit gemountet. TLS-Prüfung bleibt aktiv; beim späteren
-Containerlauf sind die Zertifikate für die internen Hostnamen zu prüfen.
+Smoke-Test sind die TLS-Verbindungen zu den internen Backend-Hostnamen geprüft.
 Das Logverzeichnis muss für den Nonroot-Benutzer des Images schreibbar sein.
 
 Für das Keycloak-Neuladen liest die Anwendung `/csv/student.csv`. PostgreSQL
@@ -94,10 +96,26 @@ Secret an den Container. Andere Werte der Root-`.env`, etwa `NVD_API_KEY`, werde
 dadurch nicht an die Anwendung weitergereicht. Eine bereits gesetzte
 Shell-Umgebungsvariable hat bei der Interpolation Vorrang.
 
-## Noch zu prüfen, sobald das Image vorhanden ist
+## Geprüfter Containerbetrieb
+
+Ein Container-Smoke-Test mit `student:local` und den laufenden Backend-Diensten
+im Netzwerk `acme-network` war erfolgreich: Paketressourcen, Nonroot- und
+Mount-Berechtigungen, App-Start mit Secret-Übergabe, Keycloak-Discovery mit TLS
+sowie HTTPS-Liveness (`status: up`) und DB-Readiness (`db: up`).
+Für die Prüfung waren beide Populate-Schalter in einer temporären
+Konfigurationskopie deaktiviert. Der Prüfcontainer wurde anschließend entfernt;
+die ursprüngliche `app.toml` blieb unverändert.
+
+Bereits der App-Import initialisiert den `UserService` mit Keycloak-Admin-Anmeldung
+und liest Client-/Rolleninformationen. Daher benötigt auch ein Start ohne
+Daten-Neuladen das `CLIENT_SECRET`.
+Der Start mit Daten-Neuladen und fachliche REST-/GraphQL-Aufrufe waren nicht
+Teil dieser Prüfung.
+
+## Nächster Schritt: App-Compose
 
 Der App-Service soll `../backend/compose.yml` einbinden, im gleichen Netzwerk
 laufen, Port 8000 veröffentlichen und auf die Bereitschaft von PostgreSQL und
-Keycloak warten. Die derzeitige Vorbereitung startet keine Dienste.
-Danach sind Paketpfade, Mount-Berechtigungen, TLS-Verbindungen, Secret-Übergabe,
-HTTPS-Erreichbarkeit und der gemeinsame Start im echten Container zu prüfen.
+Keycloak warten. Die Compose-Datei für den App-Service fehlt noch.
+Danach sind die Compose-spezifische Secret-Übergabe, Mounts, Startabhängigkeiten
+und der gemeinsame Start zu prüfen.
