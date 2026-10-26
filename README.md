@@ -649,7 +649,9 @@ Datenbank neu. Die Integrationstests rufen den Endpunkt vor jedem Testlauf auf, 
 beginnen; in Bruno steht er im Ordner *Dev* nach dem Login im Ordner *Token*.
 Wie im Beispiel ist der Endpunkt auf die Rolle Admin beschränkt.
 
-**Offen:** Mail und Lasttests (siehe GitHub Project).
+**Stand:** Alle Funktionen sind umgesetzt; offen sind Code-Review, Clean-Up und
+Abgabe (siehe GitHub Project). Mail sowie AsciiDoctor und PlantUML werden für
+Aufgabe 1 nicht verlangt und sind bewusst nicht umgesetzt.
 
 Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
 Prüfungsleistungen (siehe `src/student/entity`).
