@@ -1,23 +1,28 @@
 """HTTP-Tests für das Anlegen von Studierenden gegen den laufenden Server."""
 
 from http import HTTPStatus
-from random import randint
-from typing import Any
+from itertools import count
+from typing import Any, Final
 from uuid import uuid4
 lazy from collections.abc import Callable
 
 lazy from httpx import Client
 
+_matrikelnummern: Final = count(900000)
+"""Fortlaufende Matrikelnummern ohne Kollision mit den Testdaten.
+
+Die DB wird zu Beginn jedes Testlaufs neu geladen, deshalb reicht ein Zähler; jede
+Testdatei hat ihren eigenen Bereich.
+"""
+
 
 def _neuer_student() -> dict[str, Any]:
-    """Neuer Studierender mit zufälliger Email, Matrikelnummer und Benutzername.
+    """Neuer Studierender mit eindeutiger Email, Matrikelnummer und Benutzername.
 
-    Zufällige Werte, damit die Tests mehrfach hintereinander laufen können, ohne an
-    bereits angelegten Daten zu scheitern (die DB wird nur beim Serverstart neu
-    geladen).
+    Eindeutige Werte, weil mehrere Tests im selben Testlauf Studierende anlegen.
     """
     return {
-        "matrikelnummer": str(randint(500000, 999999)),  # ruff: ignore[suspicious-non-cryptographic-random-usage]
+        "matrikelnummer": str(next(_matrikelnummern)),
         "nachname": "Test",
         "vorname": "Theo",
         "email": f"theo.{uuid4().hex[:8]}@h-ka.de",

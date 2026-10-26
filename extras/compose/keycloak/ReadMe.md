@@ -1,55 +1,43 @@
 # Keycloak für die lokale Entwicklung
 
-Die Compose-Konfiguration und TLS-Dateien entsprechen dem FastAPI-Beispiel:
+Compose-Konfiguration und TLS-Dateien entsprechen dem FastAPI-Beispiel:
 `dhi.io/keycloak:26.7.4-debian13`, PostgreSQL als Datenbank sowie die externen
 Volumes `kc_data` und `kc_tls`. Zertifikat, privater Schlüssel und die Passwörter
 `p` sind ausschließlich für die lokale Entwicklung vorgesehen.
 
-Die Infrastruktur und die Einrichtung des Student-Realms sind hier beschrieben.
-Die OIDC-Anbindung der Anwendung folgt in einem separaten Paket.
+Hier stehen Einrichtung und Betrieb von Keycloak. Wie die Anwendung Keycloak nutzt
+(Login, Rollen, Benutzer aus den Testdaten), beschreibt die
+[README](../../../README.md#keycloak).
 
 ## Vorhandene Einrichtung zuerst prüfen
 
-Im Projektverzeichnis:
+Das Beispielprojekt verwendet **dieselben Containernamen und Volumes**
+(`postgres`, `keycloak`, `pg_data`, `kc_data` …). Beide Projekte daher nie
+parallel starten und eine vorhandene Einrichtung weiterverwenden, nicht neu
+befüllen:
 
 ```powershell
 docker ps -a
 docker volume inspect kc_data kc_tls
-docker image ls dhi.io/keycloak
-docker inspect postgres --format '{{ index .Config.Labels "com.docker.compose.project" }}'
-```
-
-Vorhandene Volumes nicht neu befüllen. Die Realms, Clients und Benutzer liegen
-in der PostgreSQL-Datenbank `keycloak`, nicht allein in `kc_data`.
-In einer vorhandenen Datenbank vor dem Start die Herkunft und Version prüfen:
-
-```powershell
 docker exec -it postgres psql --username=postgres --dbname=keycloak
 ```
 
-In psql nach Eingabe des PostgreSQL-Passworts:
+In psql:
 
 ```sql
 SELECT name FROM keycloak.realm;
-SELECT r.name AS realm, c.client_id
-FROM keycloak.client c JOIN keycloak.realm r ON r.id = c.realm_id
-ORDER BY 1, 2;
 SELECT version FROM keycloak.migration_model;
 \q
 ```
 
-`python` / `python-client` und die Client-Rolle `patient` kennzeichnen die
-Konfiguration des Beispiels. Diese nicht für Student umbenennen oder löschen.
-Eine abweichende Datenbankversion vor einem Start gesondert klären.
-Bei einer bestehenden Installation nicht davon ausgehen, dass der
-Bootstrap-Zugang `tmp` / `p` erneut angelegt wird.
+Realms, Clients und Benutzer liegen in der PostgreSQL-Datenbank `keycloak`.
+Der Realm `python` mit `python-client` gehört zum Beispiel und bleibt unverändert.
 
 ## Ersteinrichtung auf einem Rechner ohne Keycloak
 
-Nur ausführen, wenn Benutzer, Datenbank, Schema und Volumes noch nicht existieren.
-PostgreSQL zuerst nach `../postgres/ReadMe.md` einrichten und starten.
-Die vorhandenen PostgreSQL-Volumes `pg_data`, `pg_init` und `pg_tablespace`
-werden weiterverwendet.
+Nur ausführen, wenn Benutzer, Datenbank und Volumes noch nicht existieren.
+PostgreSQL vorher nach [../postgres/ReadMe.md](../postgres/ReadMe.md) einrichten
+und starten.
 
 ```powershell
 docker exec -it postgres psql --username=postgres --dbname=postgres
@@ -72,7 +60,7 @@ ALTER ROLE keycloak SET search_path = 'keycloak';
 \q
 ```
 
-TLS-Volumes wie im Beispiel vorbereiten, ausgehend vom Projektverzeichnis:
+TLS-Volumes vorbereiten (vom Projektverzeichnis aus):
 
 ```powershell
 docker volume create kc_data
@@ -93,137 +81,85 @@ chmod 500 /opt/keycloak/tls
 exit
 ```
 
-## Täglicher Betrieb: gemeinsames Compose-Projekt student
+Beim ersten Start legt Keycloak im Realm `master` den temporären Administrator
+`tmp` / `p` an (siehe `compose.yml`). Wie im Beispiel damit anmelden und unter
+**Users → Add user** den dauerhaften Administrator anlegen: Username `admin`,
+Email `admin@acme.com`, unter **Credentials** Passwort `p` mit **Temporary Off**,
+unter **Role mapping → Assign role → Realm roles** die Rolle `admin`.
 
-Beide Compose-Dateien legen `name: student` fest. Die Keycloak-Datei bindet
-wie im Beispiel `../postgres/compose.yml` ein und verwaltet damit beide Dienste.
-Für den gemeinsamen Start mit `docker compose up` im Ordner `backend` steht
-der [Backend-Einstieg](../backend/ReadMe.md) bereit. Die folgenden alternativen
-Befehle mit explizitem Dateipfad im Projektverzeichnis ausführen:
+## Starten und stoppen
+
+Für den täglichen Betrieb mit lokal gestarteter Anwendung den
+[Backend-Einstieg](../backend/ReadMe.md) verwenden (PostgreSQL und Keycloak), für
+die Anwendung im Container den [App-Einstieg](../student/ReadMe.md). Nur mit
+dieser Compose-Datei, vom Projektverzeichnis aus:
 
 ```powershell
-docker compose -f extras/compose/keycloak/compose.yml config --quiet
 docker compose -f extras/compose/keycloak/compose.yml up -d
 docker compose -f extras/compose/keycloak/compose.yml ps
-```
-
-Keycloak wartet beim Start auf den PostgreSQL-Healthcheck. Die Containernamen
-bleiben `postgres` und `keycloak`, das Netzwerk heißt weiterhin `acme-network`.
-Die externen Volumes `pg_data`, `pg_init`, `pg_tablespace`, `kc_data` und `kc_tls`
-werden weiterverwendet. Keine erneute Datenbank- oder Realm-Einrichtung nötig.
-Das Beispiel verwendet dieselben Containernamen und Volumes; der Projektname
-schafft keine getrennte Umgebung. Nicht parallel mit dem Beispiel starten.
-Bei einem fehlgeschlagenen Einrichtungsschritt stoppen und die Ursache klären.
-
-Admin-Konsole: <https://localhost:8843> (selbstsigniertes Zertifikat), alternativ
-<http://localhost:8880>. Der Management-Port ist `9990`.
-Der übernommene Container-Healthcheck prüft nicht den HTTP-Antwortstatus;
-für die Bereitschaft zusätzlich `https://localhost:9990/health/ready` prüfen.
-
-Nur Keycloak stoppen:
-
-```powershell
-docker compose -f extras/compose/keycloak/compose.yml stop keycloak
-```
-
-Beide Dienste stoppen, Container behalten:
-
-```powershell
-docker compose -f extras/compose/keycloak/compose.yml stop
-```
-
-Beide Dienste stoppen und Container sowie Netzwerk entfernen:
-
-```powershell
 docker compose -f extras/compose/keycloak/compose.yml down
 ```
 
-Die externen Volumes bleiben erhalten. Vor dem Herunterfahren die Anwendung
-beenden; auch das Beispiel darf PostgreSQL dann nicht mehr benötigen.
-Zum gemeinsamen Herunterfahren stets diese vollständige Compose-Datei nutzen.
+Diese Datei bindet `../postgres/compose.yml` ein und verwaltet damit beide Dienste
+im Compose-Projekt `student`. Keycloak wartet auf den Healthcheck von PostgreSQL.
+`down` entfernt Container und Netzwerk, die externen Volumes bleiben erhalten.
+
+Admin-Konsole: <https://localhost:8843> (selbstsigniertes Zertifikat), alternativ
+<http://localhost:8880>. Der Healthcheck des Containers wertet den HTTP-Status
+nicht aus; die Bereitschaft zeigt zuverlässig `https://localhost:9990/health/ready`.
 
 ## Student-Realm einrichten
 
-Referenz ist `extras/compose/keycloak/ReadMe.md` des FastAPI-Beispiels,
-Abschnitt „Konfiguration“. Die Schritte werden in der Admin-Konsole ausgeführt.
-Die folgenden Namen ersetzen `python`, `python-client` und `patient` aus dem
-Beispiel. Vorhandene Realms und Benutzer nicht erneut anlegen oder zurücksetzen.
+Wie im Abschnitt „Konfiguration“ der Keycloak-ReadMe des Beispiels, mit
+`student` / `student-client` / `student` statt `python` / `python-client` /
+`patient`. Alle Schritte in der Admin-Konsole:
 
-1. Mit dem vorhandenen Administrator im Realm `master` anmelden.
-   Bei abgeschlossener Beispiel-Einrichtung ist dies `admin` mit dem lokalen
-   Entwicklungspasswort `p`.
-2. **Manage realms → Create realm**: Realm name `student`, Enabled eingeschaltet.
-3. Im Realm `student` unter **Clients → Create client**:
+1. Als `admin` im Realm `master` anmelden.
+2. **Manage realms → Create realm**: Realm name `student`, Enabled an.
+3. Im Realm `student` **Clients → Create client**:
    - Client type `OpenID Connect`, Client ID `student-client`, Name `Student Client`.
    - Client authentication **On**, Authorization **Off**.
-   - **Standard flow**, **Direct access grants** und **Service account roles** aktivieren.
+   - **Standard flow**, **Direct access grants** und **Service account roles** an.
    - Root URL `https://localhost:8000`, Valid redirect URIs `*`, Web origins `+`.
-   - Speichern. Die Beispielanleitung macht keine Vorgabe zur Admin URL;
-     einen automatisch ausgefüllten Wert beibehalten.
-4. Unter **student-client → Roles** die Client-Rollen `admin` und `student`
-   anlegen, jeweils kleingeschrieben.
-5. Unter **Users → Add user** den Administrator anlegen:
-   Username `admin`, Email `admin@acme.com`, First name `Student`, Last name `Admin`.
-   **Required user actions** leer lassen.
-6. Unter **Credentials → Set password** das lokale Entwicklungspasswort `p`
-   eintragen und bestätigen; **Temporary Off**, speichern und bestätigen.
-7. Unter **Role mapping → Assign role → Client roles** zuweisen:
+4. **student-client → Roles**: Client-Rollen `admin` und `student` anlegen
+   (kleingeschrieben).
+5. **Users → Add user**: Username `admin`, Email `admin@acme.com`, First name
+   `Student`, Last name `Admin`, **Required user actions** leer.
+6. **Credentials → Set password**: `p`, **Temporary Off**.
+7. **Role mapping → Assign role → Client roles**:
 
    | Client | Rollen |
    |---|---|
    | `student-client` | `admin` |
    | `realm-management` | `manage-users`, `query-users`, `realm-admin`, `view-users` |
 
-   Die vorhandene Rolle `default-roles-student` beibehalten. Unter **Details**
-   erneut prüfen, dass **Required user actions** leer ist.
-8. Unter **Realm settings → Sessions**: **SSO Session Idle 1 Hours**, speichern.
-9. Unter **Realm settings → Tokens**: **Access Token Lifespan 30 Minutes** und
-   **Access Token Lifespan For Implicit Flow 30 Minutes**, speichern.
+   Die Rollen von `realm-management` braucht die Anwendung, um Benutzer anzulegen
+   und zu löschen.
+8. **Realm settings → Sessions**: SSO Session Idle **1 Hours**.
+9. **Realm settings → Tokens**: Access Token Lifespan und Access Token Lifespan
+   For Implicit Flow jeweils **30 Minutes**.
 
-Normale Testbenutzer werden **nicht** von Hand angelegt. Wie im Beispiel
-(`KeycloakPopulateService`) lädt die Anwendung im Dev-Modus beim Start und per
-`QUERY /dev/keycloak_populate` alle Studierenden aus `student.csv` als Benutzer
-mit der Client-Rolle `student` und dem Passwort `p` (z.B. `erika`). Dabei werden
-alle Benutzer außer `admin` gelöscht; ein früher von Hand angelegter Benutzer
-`student` verschwindet also beim ersten Start.
+Studierende werden **nicht** von Hand angelegt: Im Dev-Modus löscht die Anwendung
+beim Start und per `QUERY /dev/keycloak_populate` alle Benutzer außer `admin` und
+legt die Studierenden aus `student.csv` mit der Client-Rolle `student` und dem
+Passwort `p` neu an (z.B. `erika`).
 
 ## Client Secret und Prüfung
 
-Unter **Clients → student-client → Credentials** das **Client Secret** kopieren.
-Wenn im Projektverzeichnis noch keine `.env` vorhanden ist, einmalig anlegen:
+Unter **Clients → student-client → Credentials** das **Client Secret** kopieren
+und in die lokale `.env` im Projektverzeichnis eintragen (`CLIENT_SECRET=...`;
+Vorlage: `Copy-Item .env.example .env`). Die `.env` wird von Git ignoriert.
+Warum das Secret nicht wie im Beispiel in `app.toml` steht, erklärt die
+[README](../../../README.md#keycloak).
 
-```powershell
-Copy-Item .env.example .env
-```
-
-In der lokalen `.env` den Eintrag `CLIENT_SECRET` mit dem kopierten Wert befüllen.
-Vorhandene Einträge erhalten. Die Datei wird von Git ignoriert; Secrets und Tokens
-nicht in Screenshots oder Commits aufnehmen. Die TOML-Konfiguration für die
-Anwendung aus dem Beispiel folgt erst mit deren OIDC-Anbindung.
-
-Bei laufendem Keycloak und PostgreSQL im Projektverzeichnis ausführen:
+Prüfskript, bei laufendem Keycloak und PostgreSQL im Projektverzeichnis:
 
 ```powershell
 uv run python extras/compose/keycloak/check_realm.py
 ```
 
-Das Skript nutzt die bereits vorhandenen Entwicklungsabhängigkeiten `httpx` und
-`python-dotenv`. Es prüft das TLS-Zertifikat aus `tls/certificate.crt`, Discovery,
-die Ausgabe von Access und Refresh Tokens für `admin` und `erika` (nach dem ersten
-Start der Anwendung vorhanden) sowie Issuer,
-Client, Benutzername, Email, Client-Rollen und 30 Minuten Access-Token-Laufzeit.
-Der normale Benutzer darf keine `realm-management`-Rollen haben. Das Skript
-verändert keine Benutzer oder Konfiguration, erzeugt aber Login-Sessions.
-Secrets und Tokens werden nicht ausgegeben. Bei einem Fehler bricht es ab.
-
-Die Claims werden ausschließlich aus der direkt über geprüftes HTTPS bezogenen
-Tokenantwort gelesen. Dies ist **keine kryptografische JWT-Prüfung** und kein
-Code zur Authentifizierung von API-Requests. Die Anwendung des Beispiels verwendet
-hierfür `KeycloakOpenID.decode_token` in `src/patient/security/token_service.py`;
-diese Anbindung folgt separat.
-
-Eine zusätzliche Introspection gehört nicht zur Beispielprüfung. Beim lokalen
-Client wurde sie mit `active: false` abgelehnt; das Keycloak-Log nennt als Grund,
-dass `student-client` nicht in der Token-Audience enthalten ist. Dafür werden
-keine zusätzlichen Audience-Mapper eingerichtet. Das Prüfskript verwendet keine
-Introspection.
+Es prüft TLS-Zertifikat, Discovery, Token-Ausgabe für `admin` und `erika` (nach dem
+ersten Start der Anwendung vorhanden), Issuer, Client-Rollen und die Token-Laufzeit
+von 30 Minuten. Es ändert nichts und gibt keine Secrets oder Tokens aus. Die
+kryptografische Prüfung der Tokens übernimmt in der Anwendung
+`KeycloakOpenID.decode_token` (`src/student/security/token_service.py`).

@@ -5,17 +5,21 @@ Testdaten behalten, legt der Test seinen Studierenden selbst per POST an.
 """
 
 from http import HTTPStatus
-from random import randint
+from itertools import count
+from typing import Final
 from uuid import uuid4
 
 import pytest
 lazy from httpx import Client
 
+_matrikelnummern: Final = count(910000)
+"""Fortlaufende Matrikelnummern, eigener Bereich wie in student_write_test.py."""
+
 
 def _neuer_student_location(client: Client) -> str:
     """Neuen Studierenden per POST anlegen und die Location-URL liefern."""
     neu = {
-        "matrikelnummer": str(randint(500000, 999999)),  # ruff: ignore[suspicious-non-cryptographic-random-usage]
+        "matrikelnummer": str(next(_matrikelnummern)),
         "nachname": "Loeschen",
         "vorname": "Lea",
         "email": f"lea.{uuid4().hex[:8]}@h-ka.de",

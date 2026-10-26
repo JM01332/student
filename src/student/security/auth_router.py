@@ -10,6 +10,8 @@ from student.security.dependencies import get_token_service
 from student.security.login_data import LoginData
 lazy from student.security.token_service import TokenService
 
+__all__ = ["router"]
+
 router: Final = APIRouter(tags=["Login"])
 
 

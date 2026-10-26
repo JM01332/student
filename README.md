@@ -1,692 +1,286 @@
 # Student
 
-FastAPI-Appserver zur Verwaltung von Studierendendaten.
+FastAPI-Appserver zur Verwaltung von Studierendendaten (Aufgabe 1 im Modul
+Softwareengineering, Hochschule Karlsruhe). Vorbild ist das FastAPI-Beispielprojekt
+„Patient“; Abweichungen davon sind [unten gesammelt](#abweichungen-vom-beispielprojekt).
 
-## Stand und Technik
+## Überblick
 
-Die FastAPI-Anwendung unter `src/student/` liest Studierende mit Adresse (1:1) und
-Prüfungsleistungen (1:N) über SQLAlchemy aus PostgreSQL:
+| Bereich | Technik |
+|---|---|
+| Sprache, Projekt | Python 3.15, uv |
+| Web | FastAPI mit REST und GraphQL (Strawberry), Validierung mit Pydantic |
+| Datenbank | PostgreSQL mit TLS, OR-Mapping mit SQLAlchemy |
+| Security | Keycloak (OIDC/OAuth 2) über python-keycloak, HTTPS, Security-Header |
+| Tests | pytest (Unit und Integration), Bruno, Locust |
+| Qualität | Ruff, ty, GitHub Actions, uv audit, SonarQube, OWASP Dependency Check |
+| Betrieb, Doku | Docker und Docker Compose, MkDocs |
 
-- `GET /rest/{id}`: ein Studierender anhand der ID
-  mit ETag; passendes `If-None-Match` liefert HTTP 304 ohne Body
-- `GET /rest?nachname=...&email=...`: Suche (Teil des Nachnamens bzw. Emailadresse,
-  jeweils ohne Groß-/Kleinschreibung), mit Seiteninhalt und Metadaten;
-  ohne Parameter die erste Seite mit bis zu fünf Studierenden
-- `POST /rest`: neuen Studierenden mit Adresse und Prüfungsleistungen anlegen,
-  Antwort 201 mit `Location`-Header
-- `PUT /rest/{id}`: Studierenden ändern, nur mit passendem `If-Match`-Header;
-  Antwort 204 mit neuem ETag
-- `DELETE /rest/{id}`: Studierenden mit Adresse und Prüfungsleistungen löschen,
-  Antwort 204
-- `GET /health/liveness` und `GET /health/readiness`: Server bzw. Server und
-  Datenbank bereit
-- `QUERY /dev/db_populate`: Datenbank mit den Testdaten neu laden (nur im Dev-Modus, Rolle `admin`)
-- `QUERY /dev/keycloak_populate`: Keycloak-Benutzer aus den Testdaten neu laden
-  (nur im Dev-Modus, Rolle `admin`)
-- `GET /hello/`: Demo-Endpunkt
-- `QUERY /auth/token`: Login mit JSON-Feldern `username` und `password`;
-  Antwort mit `token`, `expires_in` und `rollen`
-- `POST /graphql`: GraphQL-Queries `student(studentId)` und `studenten(suchparameter)`
-  sowie Mutationen `create(studentInput)` und `login(username, password)`
-  (siehe [GraphQL](#graphql))
+**Aufbau** (`src/student/`): `router` → `service` → `repository` mit Dependency
+Injection, `entity` für SQLAlchemy, `graphql_api`, `security`, `config`. Der Service
+gibt DTOs zurück, der Router Pydantic-Response-Models. Fehler wie `NotFoundError`
+wirft der Service; Exception-Handler in `fastapi_app.py` machen daraus
+ProblemDetails (`application/problem+json`).
 
-Wird nichts gefunden, antwortet der Server mit 404 im Format ProblemDetails
-(`application/problem+json`, z.B. `{"title": "Not Found", "status_code": 404, ...}`).
-Die Suchparameter werden in einem Pydantic-Modell gebündelt. Unbekannte
-Query-Parameter bei `GET /rest` werden mit HTTP 422 abgewiesen.
+**Datenmodell:** Student mit Adresse (1:1) und Prüfungsleistungen (1:N).
+Tabellen in `src/student/config/resources/postgresql/create.sql`, Testdaten in
+`extras/compose/postgres/init/student/csv` (5 Studierende mit den IDs 1, 20, 30,
+40 und 50).
 
-Aufbau: Router → Service → Repository mit Dependency Injection, Entities für
-SQLAlchemy, DTOs als Rückgabe des Service und Pydantic-Response-Models im Router.
-Fehler wie `NotFoundError` wirft der Service, ein Exception-Handler in
-`fastapi_app.py` macht daraus die HTTP-Antwort. Der Server läuft über HTTPS mit einem
-selbstsignierten Zertifikat, die Datenbankverbindung ebenfalls über TLS.
-Die Keycloak-Anbindung einschließlich Login und Rollenschutz für lesende REST-Endpunkte
-sowie POST, PUT, DELETE und DB-Neuladen ist vorhanden; die Keycloak-Benutzer passen
-zu den Testdaten und POST legt neue Benutzer an. Lesen, Anlegen und Login gehen
-auch über GraphQL (Strawberry). Ein Dockerfile mit `python:3.15-trixie` ist
-vorhanden; Image-Build, Python-Aufruf, Paketressourcen und Nonroot-Schreibzugriff
-auf das interne Logverzeichnis sind geprüft. Der Container-Smoke-Test bestätigt
-App-Start, Mount-Rechte, Keycloak-TLS-Discovery und HTTPS-Liveness/DB-Readiness
-bei deaktiviertem Daten-Neuladen. App-Compose mit Backend-Include, Mounts,
-Secret-Übergabe und HTTPS-Readiness-Check ist vorhanden und statisch geprüft;
-Compose-Build und gemeinsamer Betrieb sind erfolgreich geprüft. Alle drei Dienste
-sind `healthy`, einschließlich HTTPS-Readiness der App mit DB-Zugriff (siehe
-[Container-Anleitung](extras/compose/student/ReadMe.md)).
-Python und Abhängigkeiten werden mit uv verwaltet; Qualitätssicherung erfolgt
-mit pytest, Ruff und ty, ergänzt um SonarQube und OWASP Dependency Check.
+**Stand:** Alle Funktionen sind umgesetzt
 
-## Einrichtung
+## Schnellstart
 
-Voraussetzungen: Python >=3.15 und uv >=0.12.20, entsprechend dem FastAPI-Beispiel.
-Die installierten Versionen vor der Einrichtung prüfen:
-
-```powershell
-python --version
-uv --version
-```
-
-Python 3.15 unter Windows von <https://www.python.org/downloads/windows/> mit dem
-**„Windows installer (64-bit)“** installieren, wie im FastAPI-Beispiel empfohlen.
-Diese Builds sind digital signiert. Ist **Smart App Control** aktiv, blockiert Windows
-dagegen das unsignierte Python, das `uv python install` herunterlädt („Eine
-Anwendungssteuerungsrichtlinie hat diese Datei blockiert“).
-
-Im Projektverzeichnis die virtuelle Umgebung mit diesem Python anlegen und alle
-Abhängigkeiten einrichten:
+Voraussetzungen: Python ≥ 3.15 und uv ≥ 0.12.20, Docker Desktop.
+Python unter Windows mit dem **„Windows installer (64-bit)“** von
+<https://www.python.org/downloads/windows/> installieren (signiert; ein mit
+`uv python install` geholtes Python blockiert Smart App Control).
 
 ```powershell
 uv venv --python "$env:LOCALAPPDATA\Programs\Python\Python315\python.exe"
 uv sync --all-groups
+Copy-Item .env.example .env      # CLIENT_SECRET und NVD_API_KEY eintragen
 ```
 
-Das Paket wird dabei aus `src/student/` installiert. Zur Laufzeit werden FastAPI,
-Uvicorn, loguru, SQLAlchemy, psycopg, python-dotenv und python-keycloak benötigt,
-für Tests und Hilfsskripte pytest, pytest-mock und httpx sowie Ruff und ty für die Codeprüfung,
-für die Dokumentation (Gruppe `doc`) MkDocs mit Material und mkdocstrings.
-`uv.lock` hält die aufgelösten Versionen fest.
+Einmalige Einrichtung von PostgreSQL und Keycloak:
+[extras/compose/postgres](extras/compose/postgres/ReadMe.md) und
+[extras/compose/keycloak](extras/compose/keycloak/ReadMe.md).
+Das Beispielprojekt "patient" nutzt dieselben Container- und Volume-Namen, deshalb nie
+beide gleichzeitig starten.
 
-Für OWASP Dependency Check wird eine lokale `.env` benötigt (siehe
-[Sicherheits- und Codeanalyse](#sicherheits--und-codeanalyse)):
-
-```powershell
-Copy-Item .env.example .env
-```
-
-## Server starten
-
-Vorher muss PostgreSQL laufen (siehe [PostgreSQL](#postgresql)). Gestartet wird
-Uvicorn über `src/student/__main__.py`:
-
-```powershell
-uv run python -m student
-```
-
-Alternativ startet `uv run student` (Eintrag `student = "student:main"` in
-`pyproject.toml`) dasselbe. Unter Windows mit Smart App Control wird die dafür von uv
-erzeugte `student.exe` allerdings blockiert.
-
-Im Dev-Modus (`[dev] db-populate = true` in `app.toml`) wird die Datenbank bei jedem
-Start mit `drop.sql`, `create.sql` und den CSV-Testdaten neu geladen; im Log
-erscheint dann `>>> Die DB wurde neu geladen <<<`. Nach Code-Änderungen den Server
-neu starten, da Uvicorn geänderten Code nicht automatisch lädt.
-
-Endpunkte: <https://127.0.0.1:8000/rest/1>, <https://127.0.0.1:8000/rest> und
-<https://127.0.0.1:8000/rest?nachname=muster>. Da das Zertifikat
-selbstsigniert ist, zeigt der Browser beim ersten Aufruf eine Warnung, die man für
-die Entwicklung bestätigt. REST-Lesezugriffe, POST, PUT und DELETE benötigen zusätzlich einen
-Bearer-Token; ein direkter Browseraufruf ohne Authorization-Header ergibt 401.
-
-Jede Response enthält Security-Header (HSTS, `nosniff`, `X-Frame-Options`,
-Content-Security-Policy). Die Content-Security-Policy erlaubt nur Inhalte vom
-eigenen Server; die Swagger-Oberfläche unter `/docs` lädt ihre Skripte aber von
-einem CDN und bleibt deshalb im Browser leer. Die API-Beschreibung ist weiterhin
-unter <https://127.0.0.1:8000/openapi.json> abrufbar; zum manuellen Testen dient
-Bruno (siehe unten).
-
-Beenden mit `Strg+C`. Solange der Browser noch eine Verbindung offen hält, wartet
-Uvicorn bei „Shutting down“; dann den Tab schließen oder ein zweites Mal `Strg+C`
-drücken.
-
-## Konfiguration
-
-Die Konfiguration liegt in `src/student/config/resources/app.toml` und wird beim
-Start mit `tomllib` eingelesen:
-
-- `[server]`: `host-binding` (Standard `127.0.0.1`) und `port` (Standard `8000`)
-- `[tls]`: Dateinamen von `key` (Standard `key.pem`) und `certificate`
-  (Standard `certificate.crt`) im Verzeichnis `resources/tls/`
-- `[logger]`: `debug-level` für DEBUG-Ausgaben in Konsole und `log/app.log`
-- `[db]`: Zugangsdaten für PostgreSQL (`host = "localhost"` für die App auf dem
-  Host-Rechner), `password-admin` für den Superuser beim Neuladen,
-  `log-statements` zum Protokollieren der SQL-Anweisungen, `connect-timeout`
-  (Standard 2 Sekunden) als maximale Wartezeit beim Verbindungsaufbau
-- `[dev]`: `db-populate` lädt die Datenbank beim Start neu
-- `[keycloak]`: `schema`, `host` und `port` (Standard `https`, `localhost`, `8843`),
-  `realm` (`student`), `client-id` (`student-client`) und `certificate`
-  (`certificate.crt` unter `resources/keycloak/`) für die TLS-Prüfung
-
-Auskommentierte Einträge verwenden den Standardwert. Das Paket `student.config`
-stellt die Werte für die Anwendung bereit. Der private Schlüssel ist bewusst im
-Repository, da er nur für die lokale Entwicklung dient.
-
-## PostgreSQL
-
-Der Datenbankserver läuft als Docker-Container mit TLS (Datenbank, DB-User und Schema
-jeweils `student`). Die einmalige Einrichtung pro Rechner und der tägliche Start sind
-in [extras/compose/postgres/ReadMe.md](extras/compose/postgres/ReadMe.md) beschrieben.
-Täglicher Start:
+Täglicher Start, PostgreSQL und Keycloak im Compose-Projekt `student`:
 
 ```powershell
 cd extras\compose\backend
-docker compose up
+docker compose up -d          # stoppen: docker compose stop bzw. down
+cd ..\..\..
+uv run python -m student      # Server unter https://127.0.0.1:8000
 ```
 
-Dies startet PostgreSQL und Keycloak gemeinsam im Compose-Projekt `student`.
-Beide Dienste im selben Ordner stoppen: `docker compose stop`.
-Weitere Befehle: [Backend-Betrieb](extras/compose/backend/ReadMe.md).
-Mit `down` statt `stop` werden zusätzlich Container und Netzwerk entfernt;
-die externen Volumes bleiben erhalten. Vorher die Anwendung beenden.
-Containernamen und Volumes werden weiterhin mit dem Beispiel geteilt.
+Der Server lädt im Dev-Modus beim Start die DB und die Keycloak-Benutzer neu
+(`>>> Die DB wurde neu geladen <<<` im Log). Geänderten Code lädt Uvicorn nicht
+automatisch: Server neu starten. Beenden mit `Strg+C`; hält ein Browser-Tab die
+Verbindung offen, den Tab schließen oder ein zweites Mal `Strg+C` drücken.
 
-Tabellen: `src/student/config/resources/postgresql/create.sql` (und `drop.sql`),
-Testdaten: `extras/compose/postgres/init/student/csv` (5 Studierende mit den IDs 1,
-20, 30, 40 und 50). Die Anwendung verbindet sich mit `sslmode=verify-full` und
-vertraut dem DB-Zertifikat über `src/student/config/resources/postgresql/server.crt`.
+Das Zertifikat ist selbstsigniert (Browser-Warnung für die Entwicklung bestätigen),
+der private Schlüssel liegt bewusst im Repository. Wegen der
+Content-Security-Policy bleiben `/docs` (Swagger) und GraphiQL leer; die
+API-Beschreibung liefert `/openapi.json`, getestet wird mit Bruno.
 
-## Keycloak
+## REST-Schnittstelle
 
-Compose-Konfiguration, TLS-Dateien und die Anleitung für vorhandene oder neue
-lokale Installationen liegen unter
-[extras/compose/keycloak](extras/compose/keycloak/ReadMe.md).
-Die Infrastruktur verwendet wie das Beispiel PostgreSQL und die externen Volumes
-`kc_data` und `kc_tls`. Vorhandene Beispiel-Realms werden nicht verändert.
-Der lokale Realm `student` mit Client `student-client`, den Client-Rollen
-`admin` und `student` ist eingerichtet. Den Benutzer `admin` legt man einmalig von
-Hand an; die Studierenden aus den Testdaten (z.B. `erika`) lädt die Anwendung
-selbst (siehe [Keycloak-Benutzer](#keycloak-benutzer)). Die Anleitung
-enthält die Einrichtungsschritte und einen Prüfaufruf für Discovery,
-Token-Ausstellung und Rollen. Das Client Secret liegt ausschließlich in der
-lokalen `.env` (Vorlage: `.env.example`). Die OIDC-Anbindung der Anwendung ist
-vorhanden; lesende REST-Endpunkte, POST, PUT und DELETE prüfen bereits Bearer-Token und Rollen.
+| Methode und Pfad | Rolle | Beschreibung |
+|---|---|---|
+| `GET /rest/{id}` | admin, student | ein Studierender mit ETag; `student` nur der eigene Datensatz |
+| `GET /rest?nachname=&email=&page=&size=` | admin | Suche mit Pagination |
+| `POST /rest` | admin | neu anlegen, auch als Keycloak-Benutzer |
+| `PUT /rest/{id}` | admin, student | ändern, nur mit `If-Match` |
+| `DELETE /rest/{id}` | admin, student | löschen mit Adresse und Prüfungsleistungen |
+| `QUERY /auth/token` | – | Login mit `username` und `password` |
+| `QUERY /dev/db_populate` | admin | DB neu laden (nur Dev-Modus) |
+| `QUERY /dev/keycloak_populate` | admin | Keycloak-Benutzer neu laden (nur Dev-Modus) |
+| `GET /health/liveness`, `/health/readiness` | – | Server bzw. Server und DB bereit |
+| `GET /hello/` | – | Demo |
 
-Die Anwendung stellt bereits `keycloak_config` mit diesen Verbindungsdaten bereit.
-`CLIENT_SECRET` wird aus der Prozessumgebung gelesen, ersatzweise aus `.env` im
-aktuellen Arbeitsverzeichnis; die Anwendung daher aus dem Projektverzeichnis starten.
-**Abweichung vom Beispiel:** Dort steht das Client Secret in `app.toml`
-(`[keycloak] client-secret`). Bei uns hat jeder Entwickler einen eigenen lokalen
-Keycloak und damit ein eigenes Secret; ein fester Wert in `app.toml` würde nur bei
-einem von beiden funktionieren. Deshalb kommt das Secret aus der `.env`, die nicht
-im Repository liegt. Für das Docker-Image der Anwendung muss `CLIENT_SECRET` dem
-Container über `environment` in Docker Compose übergeben werden;
-`--env-file` stellt dafür die Werte aus der Root-`.env` bereit (siehe
-[Container-Anleitung](extras/compose/student/ReadMe.md)).
+Fehlende oder ungültige Tokens ergeben 401, eine fehlende Rolle 403.
 
-Das Secret wird nicht in der Konfigurationsdarstellung ausgegeben. Ohne Secret
-bleibt das Feld vorerst leer, damit Unit-Tests und der bisherige App-Betrieb ohne
-Keycloak-Zugang möglich bleiben. Die Konfiguration allein baut keine Verbindung auf.
-Das öffentliche Zertifikat unter `src/student/config/resources/keycloak/` entspricht
-dem Compose-Zertifikat. `TokenService` verwendet die Konfiguration einschließlich
-dieses Zertifikats für die TLS-Prüfung. `token(username, password)` fordert Access
-und Refresh Token an und gibt die Keycloak-Antwort einschließlich Ablaufangaben
-unverändert zurück. Fehlende Zugangsdaten (`None`) und die Keycloak-Fehler
-`KeycloakAuthenticationError` bzw. `KeycloakOperationError` ergeben `LoginError`.
-Leere Zeichenketten und ein fehlendes Client Secret werden beim Token-Aufruf
-durch Keycloak geprüft. Passwörter und Tokens werden nicht protokolliert.
-Die Unit-Tests ersetzen den OIDC-Client durch Mocks und benötigen keinen Server.
-Die Security-Modelle `User` und `Role` sind als Grundlage für die Token-Auswertung
-vorhanden. `User` enthält Benutzername, Email, Vorname, Nachname und Rollen;
-das optionale Passwort ist von der Objektdarstellung ausgeschlossen. `Role`
-definiert `ADMIN` und `STUDENT`, passend zu den Keycloak-Client-Rollen.
-`TokenService.get_user_from_token()` verwendet `decode_token` mit dessen
-standardmäßig aktivierter Validierung und übernimmt die Benutzer-Claims sowie
-die Rollen des konfigurierten Clients in `User`. JWT-Fehler (`JWException`) und
-Auswertungsfehler (`KeyError`, `TypeError`, `ValueError`) ergeben `AuthorizationError`.
-Unbekannte Rollen werden wie im Beispiel abgelehnt; eine leere Rollenliste ist
-zulässig. Tokens und decodierte Benutzerdaten werden nicht protokolliert.
-`TokenService.get_user_from_request()` liest den `Authorization`-Header und
-übergibt den enthaltenen Bearer-Token an die bestehende Token-Auswertung.
-Das Schema wird unabhängig von Groß-/Kleinschreibung erkannt; Whitespace wird
-wie im Beispiel mit `split()` behandelt. Fehlende Header, ein anderes Schema
-oder eine von zwei abweichende Anzahl Bestandteile ergeben `AuthorizationError`.
-Auch Authorization-Header werden nicht protokolliert.
-`QUERY /auth/token` nimmt `username` und `password` als JSON-Objekt entgegen.
-Der Login-Router fordert ein Token an und wertet es mit `get_user_from_token`
-aus. Die Antwort enthält ausschließlich `token` (Access Token), `expires_in`
-und `rollen`; das Refresh Token wird nicht ausgegeben. Fehlender oder ungültiger
-JSON-Body sowie fehlende/zusätzliche Felder ergeben 401 ohne Body statt 422.
-Wie im Beispiel erfolgt keine zusätzliche Typvalidierung der Dataclass-Felder.
-`LoginError` und `AuthorizationError` werden als 401 mit ProblemDetails beantwortet.
-Der TokenService wird bei Bedarf erzeugt und wiederverwendet. Für echte Logins
-muss Keycloak mit dem Student-Realm laufen und `CLIENT_SECRET` gesetzt sein.
-Die Router-Tests ersetzen den Service und benötigen keine laufenden Dienste.
-`RolesRequired` steht als FastAPI-Dependency für die Rollenprüfung bereit.
-Bei einer einzelnen Rolle muss diese vorhanden sein; bei einer Rollenliste
-genügt eine Übereinstimmung. Eine leere Anforderungsliste erlaubt keinen Zugriff.
-Fehlende Rollen ergeben HTTP 403, ungültige Authentifizierung über den bestehenden
-Handler HTTP 401. Nur bei erfolgreicher Prüfung wird der Benutzer unter
-`request.state.current_user` abgelegt. Benutzerdaten werden nicht protokolliert.
-Folgende REST-Endpunkte verlangen einen gültigen Bearer-Token:
-
-- `GET /rest/{id}`: Rolle `admin` oder `student`
-- `GET /rest`: Rolle `admin`
-- `PUT /rest/{id}`: Rolle `admin` oder `student`
-- `DELETE /rest/{id}`: Rolle `admin` oder `student`
-- `POST /rest`: Rolle `admin` (abweichend vom ungeschützten POST im Beispiel)
-- `QUERY /dev/db_populate`: Rolle `admin` (nur im Dev-Modus)
-- `QUERY /dev/keycloak_populate`: Rolle `admin` (nur im Dev-Modus)
-
-Fehlende oder ungültige Authentifizierung ergibt 401, eine fehlende Rolle 403.
-Auch eine Antwort mit 304 setzt erfolgreichen Datensatzzugriff voraus.
-`StudentService.find_by_id` prüft den Benutzer aus dem Token: `admin` darf jeden
-Datensatz lesen, `student` nur bei exakt übereinstimmendem `username`. Fremde
-und nicht vorhandene IDs ergeben für `student` gleichermaßen 403 mit
-ProblemDetails; für `admin` bleibt eine unbekannte ID bei 404.
-PUT und DELETE prüfen wie im Beispiel ausschließlich die Rolle, nicht den Datensatzbesitz:
-Auch `student` kann fremde Datensätze ändern und löschen.
-Der Dev-Endpunkt prüft die Adminrolle vor der Body-Prüfung und dem DB-Neuladen.
-Ein nicht-leerer Body ergibt für ADMIN weiterhin 400. Das automatische Laden
-der Testdaten beim App-Start im Dev-Modus bleibt unverändert.
-
-### Keycloak-Benutzer
-
-Wie im Beispiel passen die Keycloak-Benutzer zu den Studierenden in der DB:
-
-- `UserService` (`security/user_service.py`) nutzt die Admin-REST-API von Keycloak
-  über `KeycloakAdmin`. Die Anwendung meldet sich dafür als `admin` im Realm
-  `student` an (`[keycloak] admin` und `admin-password` in `app.toml`; der Benutzer
-  braucht die `realm-management`-Rollen aus der Anleitung).
-- **Neu laden im Dev-Modus** (`[dev] keycloak-populate = true`): Beim Serverstart
-  und per `QUERY /dev/keycloak_populate` werden alle Benutzer außer `admin` gelöscht
-  und aus `student.csv` neu angelegt (Rolle `student`, Passwort `p`). So kann sich
-  z.B. `erika` einloggen und ihren eigenen Datensatz (ID 20) lesen. Die
-  Integrationstests laden DB und Keycloak vor jedem Lauf neu.
-- **POST** legt zusätzlich den Keycloak-Benutzer an. Ein Benutzername oder eine
-  Email, die es in Keycloak schon gibt, ergibt 422 mit ProblemDetails.
-  Abweichend vom Beispiel prüft der Service zuerst die DB (Email, Matrikelnummer)
-  und erst danach Keycloak, damit z.B. eine doppelte Matrikelnummer keinen
-  verwaisten Keycloak-Benutzer hinterlässt. **Bekannte Einschränkung** wie im
-  Beispiel: Scheitert das Speichern in der DB nach dem Anlegen in Keycloak, bleibt
-  der Keycloak-Benutzer bestehen.
+- **GET nach ID:** Die Version kommt als ETag (z.B. `"0"`); passt `If-None-Match`,
+  folgt 304 ohne Body. Für `student` ergeben fremde und nicht vorhandene IDs
+  gleichermaßen 403, für `admin` eine unbekannte ID 404.
+- **Suche:** `nachname` (Teil, ohne Groß-/Kleinschreibung) und `email`, kombinierbar.
+  Standard `page=0`, `size=5`; erlaubt `page ≥ 0` und `0 ≤ size ≤ 100`, `size=0`
+  liefert alle Treffer. Antwort `{content: [...], page: {size, number,
+  total_elements, total_pages}}`. Unbekannte Parameter oder ungültige Werte
+  ergeben 422, keine Treffer bzw. eine leere Seite 404.
+- **POST:** Pydantic prüft Matrikelnummer (6 Ziffern), Namen mit großem
+  Anfangsbuchstaben (auch Doppelnamen wie „Müller-Lüdenscheidt“), Email, PLZ
+  (5 Ziffern), zulässige Notenstufen und Semester wie `WS 2026/27` oder `SS 2026`.
+  Ungültige Daten ergeben 422 mit den Feldern, eine vorhandene Email,
+  Matrikelnummer oder ein vorhandener Benutzername 422 mit ProblemDetails, Erfolg
+  201 mit `Location`-Header.
+- **PUT** ändert Matrikelnummer, Name, Vorname und Email. Ohne `If-Match` folgt 428,
+  bei ungültigem Format oder veralteter Version 412, bei unbekannter ID 404, Erfolg
+  204 mit neuem ETag.
+- **DELETE** antwortet immer mit 204, auch für unbekannte IDs (idempotent).
 
 ## GraphQL
 
-Neben REST gibt es wie im Beispiel eine GraphQL-Schnittstelle mit Strawberry
-(„Code-first“: das Schema entsteht aus Python-Klassen). Es gibt nur einen Endpunkt,
-`POST /graphql`; im Body steht eine Query, die festlegt, welche Felder geliefert
-werden:
+Endpunkt `POST /graphql` mit Strawberry („Code-first“), z.B.
+`{ student(studentId: "20") { nachname email adresse { ort } } }`:
 
-```graphql
-{ student(studentId: "20") { nachname email adresse { ort } } }
-```
+- Queries `student(studentId)` und `studenten(suchparameter)`: unbekannte ID ergibt
+  `null`, die Suche ohne Rolle `admin` eine leere Liste. Fehler wie ein fehlendes
+  Token erscheinen unter `errors` (HTTP 200).
+- Mutation `create(studentInput)` (nur admin) mit denselben Pydantic-Regeln wie
+  POST, Ergebnis die neue `id`.
+- Mutation `login(username, password)` mit `token`, `expiresIn` und `roles`.
 
-- Typen: `StudentDTO`, `AdresseDTO` und `PruefungsleistungDTO` tragen zusätzlich
-  `@strawberry.type` (im Schema `Student`, `Adresse`, `Pruefungsleistung`), die
-  Suche nimmt den Eingabetyp `Suchparameter` (`nachname`, `email`).
-- Resolver in `graphql_api/schema.py` rufen den vorhandenen `StudentService` auf;
-  das Token kommt wie bei REST aus dem `Authorization`-Header. Service und
-  `TokenService` werden wie im Beispiel einmal beim Laden des Moduls erzeugt.
-- Verhalten wie im Beispiel: unbekannte ID ergibt `null`, die Suche ohne Rolle
-  `admin` eine leere Liste (sonst alle Treffer ohne Seiteneinteilung). Fehlender
-  Token oder ein fremder Datensatz erscheinen als Eintrag unter `errors`.
-  GraphQL antwortet auch dann mit HTTP 200.
-- Mutation `create(studentInput)`: Die Eingabe (`StudentInput` mit `AdresseInput`
-  und `PruefungsleistungInput`) wird wie im Beispiel per
-  `StudentModel.model_validate(asdict(...))` mit denselben pydantic-Regeln wie beim
-  REST-POST geprüft und über `StudentWriteService.create` angelegt (inklusive
-  Keycloak-Benutzer); das Ergebnis ist die neue `id`. Validierungsfehler gibt
-  `PydanticErrorExtension` unter `errors` aus. **Abweichung vom Beispiel:** wie unser
-  REST-POST nur mit Rolle `admin` (im Beispiel ungeschützt).
-- Mutation `login(username, password)`: liefert `token`, `expiresIn` und `roles`.
-  **Abweichung vom Beispiel:** `expiresIn` ist wie beim REST-Login die echte
-  Laufzeit in Sekunden aus Keycloak (1800) statt fest `"1d"`; das Passwort wird
-  nicht protokolliert.
-- Wie im Beispiel werden auch `UserService` und `StudentWriteService` beim Laden
-  von `schema.py` erzeugt; der `UserService` verbindet sich dabei mit Keycloak
-  (ohne Keycloak, z.B. in der CI, wird nur ein Fehler geloggt).
-- `[graphql] graphiql-enabled` in `app.toml` schaltet die Browser-Oberfläche
-  GraphiQL ein. Wegen der Content-Security-Policy bleibt sie wie `/docs`
-  vermutlich leer; getestet wird mit Bruno (Ordner *GraphQL*) und den
-  Integrationstests (`graphql_test.py`, `graphql_mutation_test.py`).
+Das Token kommt wie bei REST aus dem `Authorization`-Header. Wie im Beispiel
+werden Services und `UserService` beim Laden von `graphql_api/schema.py` erzeugt;
+der `UserService` verbindet sich dabei mit Keycloak (ohne Keycloak, z.B. in der CI,
+wird nur ein Fehler geloggt).
 
-## Manuelle Tests mit Bruno
+## Konfiguration
 
-Die Bruno-Collection liegt in `extras/bruno/student` (OpenCollection-Format wie im
-FastAPI-Beispiel). In Bruno (`C:\Zimmermann\Bruno\Bruno.exe`) über
-*Open Collection* den Ordner `extras\bruno\student` öffnen. Da das Zertifikat
-selbstsigniert ist, unter *Preferences > General* die Option
-*SSL/TLS Certificate Verification* deaktivieren.
+`src/student/config/resources/app.toml`; auskommentierte Einträge verwenden den
+Standardwert:
 
-Die Collection hat die Ordner *Token*, *Dev*, *Hello*, *Health*, *REST* (mit
-*Suche mit ID*, *Suche mit Suchparameter*, *Neu anlegen*, *Aendern*, *Loeschen* und
-*Als Studierende*) und *GraphQL* (mit *Query* und *Mutation*). *Dev* lädt DB und Keycloak-Benutzer neu; *Als Studierende*
-meldet sich als `erika` an (eigener Datensatz 200, fremder Datensatz und Suche 403).
-Für den Login müssen PostgreSQL, Keycloak mit Student-Realm und die Anwendung
-laufen; `CLIENT_SECRET` muss für die Anwendung gesetzt sein.
+| Abschnitt | Inhalt |
+|---|---|
+| `[server]` | `host-binding` (`127.0.0.1`), `port` (`8000`) |
+| `[tls]` | Schlüssel und Zertifikat unter `resources/tls/` |
+| `[logger]` | `debug-level`: DEBUG-Ausgaben in Konsole und `log/app.log` |
+| `[db]` | Zugangsdaten, `host` (`localhost`), `password-admin` für das Neuladen, `log-statements`, `connect-timeout` (2 s) |
+| `[keycloak]` | `host`/`port` (`localhost:8843`), `realm`, `client-id`, Zertifikat, `admin`/`admin-password` für die Admin-API, `csv` mit den Testbenutzern |
+| `[graphql]` | `graphiql-enabled` |
+| `[dev]` | `db-populate`, `keycloak-populate`: beim Start neu laden |
 
-1. In Bruno das Environment *student* auswählen. Es enthält `username = admin`
-   und die Secret-Variable `password` ohne gespeicherten Wert.
-2. Im Environment das Passwort des lokalen Keycloak-Benutzers `admin` bei
-   `password` eintragen, die Markierung *Secret* beibehalten und *Save* wählen.
-   Bruno speichert Secret-Werte lokal außerhalb der Collection.
-3. Im Collection-Runner den Request *Token > Token als admin* zuerst einordnen. Er ruft
-   `QUERY /auth/token` auf und übernimmt bei Erfolg `token` als Laufzeitvariable
-   `accessToken`. Der Dev-Request und die REST-GET-, POST-, PUT- und
-   DELETE-Requests verwenden diese automatisch im Bearer-Header. Vor jedem Login wird der bisherige Laufzeitwert geleert,
-   damit ein fehlgeschlagener Login keinen alten Token weiterverwendet.
-4. Dev- und REST-Requests im selben Lauf nach dem Login ausführen. Nach Ablauf des Tokens (30 Minuten)
-   oder nach einem Bruno-Neustart erneut einloggen. Tokens nicht als feste
-   Collection- oder Environment-Werte speichern.
+## Keycloak
 
-Bei *Run* auf der ganzen Collection zuerst das Environment *student* auswählen.
-Die Requests müssen nacheinander in der gespeicherten Reihenfolge laufen, nicht
-parallel. Beim vollständigen Collection-Run ist kein manuelles Umordnen nötig.
-Für einen Teillauf Login und gewünschte Folge-Requests gemeinsam auswählen;
-Login muss vor DB-Neuladen und den REST-Tests ausgeführt werden. Die
-Token-Weitergabe zwischen separaten Einzelausführungen ist noch nicht geklärt.
-Alle HTTP-Requests haben collectionweit eindeutige Sequenznummern (1–50).
-Damit ergibt sowohl die Sortierung innerhalb der Ordner als auch die Sortierung
-einer flachen Request-Liste dieselbe Reihenfolge. Neue Requests entsprechend
-einsortieren und die nachfolgenden Sequenznummern anpassen.
-Die Auswahlliste des VS-Code-Runners kann eine abweichende Reihenfolge anzeigen;
-sie entspricht beim vollständigen Collection-Run nicht der Ausführungsreihenfolge.
-Die Ausführung erfolgt in der vorgesehenen Reihenfolge: Token, Dev, Hello,
-Health, REST (Lesen/Suche, POST, PUT, DELETE; Lesen der gelöschten ID nach DELETE;
-zuletzt Zugriffe als Studierende), GraphQL.
-Der Lauf der ganzen Collection führt zuerst den Login unter *Token*, danach
-das DB-Neuladen unter *Dev* und anschließend die übrigen Tests aus. Die Variable
-`baseUrl` steht weiterhin in `opencollection.yml`. Für den Login über die Anwendung wird kein Client Secret
-in Bruno benötigt.
+Realm `student`, Client `student-client` mit den Client-Rollen `admin` und
+`student`; Einrichtung siehe [Keycloak-Anleitung](extras/compose/keycloak/ReadMe.md).
+Den Benutzer `admin` legt man einmal von Hand an. Die Studierenden aus
+`student.csv` lädt die Anwendung im Dev-Modus beim Start und per
+`QUERY /dev/keycloak_populate` (alle Benutzer außer `admin` werden gelöscht und
+mit Rolle `student` und Passwort `p` neu angelegt, z.B. `erika`). POST legt den
+Keycloak-Benutzer mit an.
 
-Schreibende Requests verändern die Testdaten: „Neuer Student“, „Vorhandenen Student
-aendern“ und „Vorhandene ID 50 loeschen“ klappen jeweils nur einmal. Beim Ausführen
-einzelner Schreibtests deshalb Login und „DB neu laden“ im selben Lauf davor einordnen; sonst
-folgt z.B. 422 mit „Existierende Email“. Ein Lauf der ganzen Collection beginnt
-mit dem Login und anschließend diesem Request.
+Das **Client Secret** steht in der `.env` (`CLIENT_SECRET`), nicht in `app.toml`:
+Jeder von uns hat einen eigenen lokalen Keycloak und damit ein eigenes Secret.
+Die Anwendung liest es aus der Umgebung oder ersatzweise aus `.env` im
+Arbeitsverzeichnis, deshalb aus dem Projektverzeichnis starten.
 
-## Tests und Codeprüfung
+Tokens prüft `TokenService` mit `decode_token` (Signatur und Ablauf); die Rollen
+kommen aus den Client-Rollen von `student-client`. Passwörter, Tokens und
+Authorization-Header werden nicht protokolliert.
 
-Es gibt zwei Arten von Tests, wie im FastAPI-Beispiel:
+## Docker
 
-- **Unit-Tests** (`tests/unit`) brauchen weder Server noch Datenbank und laufen auch
-  in der CI.
-- **Integrationstests** (`tests/integration`) schicken mit httpx echte
-  HTTPS-Requests an den laufenden Server. Vorher Keycloak, PostgreSQL und den Server
-  (`uv run python -m student`) starten; sonst bricht der Testlauf mit einem Hinweis ab. Sie
-  laufen nur lokal. Wie im Beispiel holen sich die Tests das Token selbst über
-  `QUERY /auth/token`: Die Fixture `client` meldet sich einmal pro Testlauf als
-  `admin` an, die Fixture `login` erlaubt Tests auch andere Benutzer. Schlägt der
-  Login fehl (Keycloak aus oder `CLIENT_SECRET` fehlt), bricht der Lauf mit einem
-  Hinweis ab. `auth_test.py` prüft gegen den echten Keycloak: Login (200 bzw. 401),
-  Requests ohne oder mit verfälschtem Token (401) und eine Suche ohne Rolle
-  `admin` (403).
+`Dockerfile` (zweistufig: uv installiert nur die Laufzeitabhängigkeiten, das
+Laufzeit-Image übernimmt die fertige `.venv` und läuft als Benutzer `app`) und
+[extras/compose/student](extras/compose/student/ReadMe.md) für Anwendung,
+PostgreSQL und Keycloak zusammen:
 
 ```powershell
-uv run pytest tests/unit          # nur Unit-Tests
-uv run pytest                     # alle Tests, Server muss laufen
+cd extras\compose\student
+docker compose --env-file ../../../.env up --build -d
+```
+
+Die Container-Konfiguration steht in `extras/compose/student/app.toml`, das Secret
+wird aus der `.env` übergeben und nicht ins Image kopiert. Lokaler Server und
+Container nutzen beide Port 8000, also nur eines von beiden starten.
+
+## Tests
+
+| Art | Ort | Ausführen |
+|---|---|---|
+| Unit-Tests mit Mocks, ohne Server | `tests/unit` | `uv run python -m pytest tests/unit` |
+| Integrationstests mit httpx gegen den laufenden Server | `tests/integration` | `uv run python -m pytest` |
+| Manuelle Tests | `extras/bruno/student` | Bruno, siehe unten |
+| Lasttest | `tests/lasttest/locustfile.py` | `uvx locust -f .\tests\lasttest\locustfile.py` |
+
+**Integrationstests** brauchen PostgreSQL, Keycloak und den Server, sonst bricht
+der Lauf mit einem Hinweis ab. Sie holen sich das Token wie im Beispiel selbst
+(Fixtures `client` für `admin` und `login` für andere Benutzer) und laden DB und
+Keycloak einmal pro Testlauf neu. Tests, die Studierende anlegen oder löschen,
+erzeugen ihre Daten selbst, damit die übrigen Tests die 5 Testdatensätze behalten.
+
+**Bruno** (`C:\Zimmermann\Bruno\Bruno.exe`): *Open Collection* auf
+`extras\bruno\student`, unter *Preferences > General* die
+*SSL/TLS Certificate Verification* ausschalten, das Environment *student* wählen
+und dort das Secret `password` = `p` eintragen. Danach die ganze Collection mit
+dem Runner ausführen: Sie loggt sich zuerst ein (*Token*, das Token landet in
+`accessToken`), lädt DB und Keycloak neu (*Dev*) und testet dann Hello, Health,
+REST (zuletzt *Als Studierende* mit `erika`) und GraphQL. Die Requests haben
+collectionweit eindeutige Sequenznummern (1–50); neue Requests entsprechend
+einsortieren. Einzeln ausgeführte schreibende Requests klappen nur einmal pro
+Neuladen (sonst z.B. 422 „Existierende Email“); vorher *Token* und *Dev* ausführen.
+
+**Locust:** Jeder simulierte Benutzer loggt sich als `admin` ein und sucht nach
+ID, Nachname und Email (Gewichte 100 : 200 : 150). Im Browser
+`http://localhost:8089` öffnen, z.B. 50 Users, Ramp Up 5, Host
+`https://localhost:8000`. Server, DB, Keycloak und Locust laufen auf demselben
+Notebook; für aussagekräftigere Werte `debug-level` und `log-statements` in
+`app.toml` auf `false` setzen.
+
+## Codeprüfung und Sicherheit
+
+```powershell
 uv run ruff check --preview src tests
 uv run ruff format --preview --check src tests
 uv run ty check src tests
+uv tree --outdated --all-groups --depth=1   # neuere Versionen
+uv audit                                    # bekannte Sicherheitslücken
 ```
 
-Meldet Windows bei `uv run pytest` „Eine Anwendungssteuerungsrichtlinie hat diese
-Datei blockiert“, blockiert die Anwendungssteuerung (z.B. Smart App Control) die
-lokal erzeugte, unsignierte `pytest.exe`. Gleichwertig ist dann der Aufruf über den
-Python-Interpreter, z.B. `uv run python -m pytest tests/unit`. Wird auch `python`
-selbst blockiert, wurde die `.venv` mit einem unsignierten Python angelegt; dann wie
-unter [Einrichtung](#einrichtung) beschrieben mit Python von python.org neu anlegen.
+Ruff verwendet das Regelset des Beispiels (`[tool.ruff.lint]` in `pyproject.toml`).
+Die [CI](.github/workflows/ci.yml) führt bei jedem Push Unit-Tests, Ruff und ty mit
+`uv sync --locked` aus; die Actions sind auf Commit-SHAs festgelegt. Die
+Integrationstests brauchen Server und DB und laufen nur lokal.
 
-Ruff verwendet das Regelset aus dem FastAPI-Beispiel (`[tool.ruff.lint]` in
-`pyproject.toml`), unter anderem mit Regeln für Sicherheit, Docstrings und
-Import-Sortierung. Die Prüfungen vor jedem Push lokal ausführen, da die CI sonst
-fehlschlägt.
-
-Unit-Tests in `tests/unit` testen einzelne Klassen wie den Service mit Mocks
-(`pytest-mock`) statt echter Abhängigkeiten.
-
-## Lasttests mit Locust
-
-Wie im Beispiel steht der Lasttest in `tests/lasttest/locustfile.py`. Jeder
-simulierte Benutzer holt sich beim Start einen Token als `admin` (Login per
-`QUERY /auth/token`) und schickt danach nur lesende Requests: Suche nach ID,
-nach einem Teil des Nachnamens und nach Email, gewichtet im Verhältnis 100 : 200 : 150.
-pytest sammelt die Datei nicht ein (`testpaths` in `pyproject.toml`).
-
-Voraussetzung: PostgreSQL, Keycloak und der Server laufen (siehe oben). Dann:
-
-```powershell
-uvx locust -f .\tests\lasttest\locustfile.py
-```
-
-Im Browser `http://localhost:8089` öffnen und z.B. eintragen:
-
-- Number of users: `50`
-- Ramp Up (users started/second): `5`
-- Host: `https://localhost:8000`
-
-Mit *Start* beginnt der Test; die Seite zeigt Requests pro Sekunde, Antwortzeiten
-und Fehler. Abweichend vom Beispiel gibt der Test die gelesenen IDs nicht mit
-`print` aus, weil das nur das Terminal füllt und den Test bremst.
-
-Bei der Bewertung bedenken: Server, Datenbank, Keycloak und Locust laufen alle auf
-demselben Notebook, über HTTPS und mit ausführlichem Logging. Für
-aussagekräftigere Werte in `src/student/config/resources/app.toml`
-`debug-level = false` und `log-statements = false` setzen (danach Server neu
-starten).
-
-## Dokumentation mit MkDocs
-
-Wie im Beispiel wird die Dokumentation mit MkDocs und dem Theme
-*Material for MkDocs* erzeugt (`mkdocs.yml`, Seiten unter `docs/`):
-
-```powershell
-uv run mkdocs serve   # Webserver mit Live-Reload: http://localhost:8001
-uv run mkdocs build   # statisches HTML im Ordner site/ (nicht im Repository)
-```
-
-- **API-Dokumentation:** Die Seiten unter `docs/modules/` bestehen nur aus einer
-  Zeile wie `::: student.router`. Das Plugin mkdocstrings liest daraus die
-  Docstrings (Stil `:param ...:` / `:return:`, in `mkdocs.yml` als
-  `docstring_style: sphinx`) der Elemente, die das Paket in `__all__` exportiert.
-  Der Quellcode wird dabei nur gelesen, nicht ausgeführt; Server und Datenbank
-  müssen nicht laufen.
-- `strict: true`: Warnungen, z.B. zu fehlerhaften Docstrings oder Links, brechen den
-  Build ab.
-- **Port 8001** statt des Standards 8000 (`dev_addr` in `mkdocs.yml`), damit die
-  Anwendung parallel laufen kann. Im Browser `http://localhost:8001` statt
-  `127.0.0.1` verwenden: Die Anwendung sendet wie im Beispiel den Header HSTS, der
-  den Browser für den Host `127.0.0.1` auf allen Ports auf HTTPS festlegt; MkDocs
-  spricht nur HTTP (sonst `ERR_SSL_PROTOCOL_ERROR`).
-- Versionen wie im Beispiel, u.a. `mkdocs>=1.6.1,<2.0.0`. Der Hinweis von
-  Material zu MkDocs 2.0 beim Build betrifft uns deshalb nicht.
-
-## Library Skills
-
-Einige Bibliotheken liefern im Paket Anleitungen für KI-Coding-Agenten mit
-(*Skills*, Datei `SKILL.md` mit Verweisen). Derzeit ist das FastAPI unter
-`.venv\Lib\site-packages\fastapi\.agents\skills\fastapi\`. Das Werkzeug
-`library-skills` sucht diese Skills in den installierten Paketen und legt sie im
-Projekt unter `.agents/skills/` ab, wo Agenten wie Claude Code oder Copilot sie finden:
-
-```powershell
-uvx library-skills install --all --copy
-```
-
-- `--all`: alle gefundenen Skills ohne Rückfrage installieren
-- `--copy`: Dateien kopieren statt verlinken, damit sie ins Repository kommen und
-  unter Windows keine Symlinks nötig sind
-
-Die Dateien unter `.agents/` werden erzeugt und nicht von Hand geändert. Nach einem
-Update von FastAPI den Befehl erneut ausführen.
-
-## Continuous Integration
-
-Der Workflow [CI](.github/workflows/ci.yml) führt bei Push und Pull Request auf
-GitHub die Unit-Tests, Ruff, die Formatprüfung und ty aus. Die Integrationstests
-brauchen Server und Datenbank und laufen deshalb nur lokal. Er läuft auf Ubuntu
-mit uv 0.12.23 und Python `"3.15"` mit `allow-prereleases: true`. Solange es
-kein finales Python 3.15 gibt, wird der neueste Release Candidate verwendet,
-danach automatisch die finale Version.
-
-`uv sync --locked --all-groups` installiert die Abhängigkeiten aus `uv.lock`
-und bricht ab, falls die Lockdatei nicht zur Projektkonfiguration passt.
-Auch die Prüfungen verwenden `uv run --locked`. Externe Dienste und Secrets
-sind für die Unit-Tests nicht erforderlich.
-
-Die Einrichtung orientiert sich an der
-[offiziellen uv-Anleitung für GitHub Actions](https://docs.astral.sh/uv/guides/integration/github/).
-Die verwendeten Actions sind auf Commit-SHAs festgelegt. Ergebnisse erscheinen
-nach dem Push im GitHub-Reiter **Actions** und beim Pull Request unter den Checks.
-
-## Sicherheits- und Codeanalyse
-
-### Abhängigkeiten prüfen
-
-```powershell
-uv tree --outdated --all-groups --depth=1
-uv audit
-```
-
-`uv tree --outdated` zeigt direkte Abhängigkeiten mit neueren Versionen,
-`uv audit` gleicht alle Pakete aus `uv.lock` mit bekannten Sicherheitslücken ab.
-
-### SonarQube
-
-Der SonarQube-Server läuft als Docker-Container
-([compose.yml](extras/compose/sonarqube/compose.yml)); die Daten liegen unter
-`C:/Zimmermann/volumes/sonarqube`:
-
-```powershell
-cd extras\compose\sonarqube
-docker compose up
-```
-
-Beim ersten Start unter <http://localhost:9000> mit `admin`/`admin` anmelden, das
-Passwort ändern und unter *My Account > Security*
-(<http://localhost:9000/account/security>) einen *Global Analysis Token* erzeugen.
-Jeder nutzt seinen eigenen lokalen Server und Token. Der Token steht deshalb nicht
-in `sonar-project.properties`, sondern als Windows-Umgebungsvariable:
+**SonarQube:** `docker compose up` in `extras\compose\sonarqube`, unter
+<http://localhost:9000> (beim ersten Mal `admin`/`admin`, Passwort ändern) unter
+*My Account > Security* einen *Global Analysis Token* erzeugen und als
+Umgebungsvariable speichern:
 
 ```powershell
 [Environment]::SetEnvironmentVariable("SONAR_TOKEN", "<Token>", "User")
+uv run python sonar-scanner.py   # nach Neustart von Terminal bzw. VS Code
 ```
 
-Danach VS Code bzw. das Terminal neu starten. Die Analyse startet man in einem
-zweiten Terminal im Projektverzeichnis; das Ergebnis erscheint unter
-<http://localhost:9000> im Projekt `student`:
-
-```powershell
-uv run python sonar-scanner.py
-```
-
-Herunterfahren mit `docker compose down` im Verzeichnis `extras\compose\sonarqube`.
-
-### OWASP Dependency Check
-
-OWASP Dependency Check gleicht die installierten Pakete mit der NVD-Datenbank ab.
-Dafür wird ein eigener API-Key benötigt
-(<https://nvd.nist.gov/developers/request-an-api-key>), der in der lokalen `.env`
-als `NVD_API_KEY` eingetragen wird. `.env` ist in `.gitignore`; `.env.example`
-dient als Vorlage.
-
-```powershell
-uv run extras/dependency-check.py
-```
-
-Der Report wird als `dependency-check-report.html` im Projektverzeichnis abgelegt.
-Die Python-Analyzer sind bei Dependency Check experimentell und werden im Skript
-mit `--enableExperimental` aktiviert; ohne diese Option werden keine Python-Pakete
-geprüft. Bekannte Fehlalarme stehen mit Begründung in
+**OWASP Dependency Check** braucht einen NVD-API-Key
+(<https://nvd.nist.gov/developers/request-an-api-key>) als `NVD_API_KEY` in der
+`.env`. `uv run extras/dependency-check.py` schreibt
+`dependency-check-report.html`; die Python-Analyzer sind experimentell und werden
+im Skript eingeschaltet. Begründete Fehlalarme stehen in
 [extras/suppression.xml](extras/suppression.xml).
+
+## Dokumentation und Library Skills
+
+**MkDocs** mit Material und mkdocstrings (`mkdocs.yml`, Seiten unter `docs/`):
+
+```powershell
+uv run mkdocs serve   # http://localhost:8001 (nicht 127.0.0.1, siehe unten)
+uv run mkdocs build   # HTML im Ordner site/
+```
+
+Die Seiten unter `docs/modules/` erzeugen die API-Dokumentation aus den Docstrings
+(Stil Sphinx) der in `__all__` exportierten Elemente; `strict: true` bricht bei
+Warnungen ab. Im Browser `localhost` statt `127.0.0.1` verwenden: Der HSTS-Header
+der Anwendung legt den Browser für `127.0.0.1` auf HTTPS fest, MkDocs spricht nur
+HTTP.
+
+**Library Skills:** Anleitungen für KI-Coding-Agenten, die FastAPI im Paket
+mitliefert, kopiert `uvx library-skills install --all --copy` nach
+`.agents/skills/` (`--copy` statt Symlinks, damit sie im Repository landen). Die
+Dateien nicht von Hand ändern, nach einem FastAPI-Update den Befehl erneut
+ausführen.
+
+## Abweichungen vom Beispielprojekt "patient"
+
+- **Client Secret** in `.env` statt `app.toml` (eigener Keycloak je Entwickler,
+  siehe [Keycloak](#keycloak)).
+- **Docker-Image** `python:3.15-trixie` statt `dhi.io/python`: Das Projekt setzt
+  Python ≥ 3.15 voraus, das Image des Beispiels basiert auf Python 3.14. Da das
+  offizielle Image keinen Nonroot-Benutzer mitbringt, legt das Dockerfile den
+  Benutzer `app` (UID 10000) selbst an.
+- **POST und GraphQL-`create` nur mit Rolle admin** (im Beispiel ungeschützt).
+- **POST prüft zuerst die DB, dann Keycloak**, damit z.B. eine doppelte
+  Matrikelnummer keinen verwaisten Keycloak-Benutzer hinterlässt.
+- **GraphQL-`login`:** `expiresIn` ist die echte Laufzeit in Sekunden (1800) statt
+  fest `"1d"`; das Passwort wird nicht protokolliert.
+- **Namensmuster** mit `+` im zweiten Teil, damit Doppelnamen wie
+  „Müller-Lüdenscheidt“ gültig sind.
+- **PUT:** Ein `If-Match` ohne Zahl ergibt 412 mit ProblemDetails statt einer leeren
+  Antwort.
+- **Kleinere Korrekturen:** Health-Readiness fängt auch Fehler beim
+  Verbindungsaufbau ab, `connect-timeout` für die DB, ProblemDetails mit Titel für
+  404.
+- **MkDocs** auf Port 8001, damit die Anwendung parallel auf 8000 laufen kann.
+- **Locust** ohne `print` je Request; Login per `QUERY` wie unsere Schnittstelle.
+
 
 ## Zusammenarbeit
 
-Die Aufgaben werden als Issues im
-[GitHub Project](https://github.com/users/JM01332/projects/1) geplant und verteilt.
-
-Gearbeitet wird nach der `VORGEHENSWEISE.md` aus dem FastAPI-Beispiel.
-Abgeschlossen sind die Abschnitte „Elementare Infrastruktur und einfacher Server“
-(Endpunkt, HTTPS, Konfiguration mit TOML) und „Codeanalyse, Formatierung,
-Typprüfung und Sicherheit“ (Ruff, ty, CI, uv audit, SonarQube, OWASP Dependency
-Check) sowie „Infrastruktur“ (Schichten Router → Service → Repository mit
-Dependency Injection, gebündelte Router, gzip, Security-Header).
-
-Im Abschnitt „REST-Schnittstelle, DB-Zugriff, Validierung, Bruno und Testen“ sind
-erledigt: Logging mit loguru, Pfad- und Query-Parameter, OR-Mapping mit SQLAlchemy
-und PostgreSQL einschließlich Fetch-Join, Neuladen der DB im Dev-Modus, Bruno,
-Unit-Tests mit Mocks, Integrationstests mit pytest und httpx sowie CI, Health-Router
-und Fehlerbehandlung mit `NotFoundError` und ProblemDetails, Pydantic-Response-Models
-sowie ETag und `If-None-Match` für GET nach ID und ein Pydantic-Modell für
-die Suchparameter `nachname` und `email` sowie REST-Pagination mit `page` und `size`,
-POST mit Validierung. Aus „Weitere Funktionalitäten“ sind PUT mit `If-Match`
-(Vermeidung von „Lost Updates“), DELETE, Keycloak für OIDC einschließlich
-„Keycloak neu laden“, GraphQL mit Strawberry („Code-first“, Query und
-Mutation) sowie die Dokumentation mit MkDocs (einschließlich Docstrings) umgesetzt.
-
-`GET /rest/{id}` liefert die Version als ETag (z.B. `"0"`). Bei einem passenden
-`If-None-Match: "0"` antwortet der Server mit 304 ohne Body und mit ETag.
-Bei anderer Version oder ungültigem Header folgt 200 mit JSON und aktuellem ETag.
-Die Header-Auswertung entspricht dem Beispiel: ein einzelner ganzzahliger
-Versionswert in doppelten Anführungszeichen. ETag-Listen, `*` und schwache ETags
-(`W/"0"`) werden in diesem Paket nicht ausgewertet.
-
-`POST /rest` legt mit der Rolle `admin` neue Studierende an. Der Request-Body wird
-mit Pydantic validiert (`router/student_model.py`, `student_update_model.py`, `adresse_model.py`,
-`pruefungsleistung_model.py`): Matrikelnummer mit 6 Ziffern, Vor- und Nachname mit
-großem Anfangsbuchstaben (auch Doppelnamen wie „Müller-Lüdenscheidt“), gültige Email,
-PLZ mit 5 Ziffern, nur zulässige Notenstufen und Semester wie `WS 2026/27` oder
-`SS 2026`. Ungültige Daten liefern HTTP 422 mit den betroffenen Feldern, eine bereits
-vorhandene Email oder Matrikelnummer HTTP 422 mit ProblemDetails. Bei Erfolg antwortet
-der Server mit 201 ohne Body und dem `Location`-Header zum neuen Datensatz.
-
-`PUT /rest/{id}` ändert mit der Rolle `admin` oder `student` Matrikelnummer,
-Nachname, Vorname und Email
-(`router/student_update_model.py`); Adresse und Prüfungsleistungen bleiben
-unverändert. Der Client schickt die gelesene Version als `If-Match: "0"` mit
-(optimistische Synchronisation):
-
-- ohne `If-Match`: 428 Precondition Required
-- `If-Match` ohne Anführungszeichen oder ohne Zahl: 412 Precondition Failed
-- veraltete Version, weil inzwischen jemand anderes geändert hat: 412 mit
-  „Veraltete Version: …“
-- nicht vorhandene ID: 404; Email oder Matrikelnummer eines anderen
-  Studierenden bzw. ungültige Daten: 422
-- Erfolg: 204 ohne Body mit dem neuen ETag, z.B. `"1"`
-
-Alle Fehler kommen als ProblemDetails (bis auf die Validierungsfehler von
-Pydantic). Bekannte Einschränkung wie im Beispiel: Schickt ein PUT genau die
-gespeicherten Daten, führt SQLAlchemy kein UPDATE aus und die Version in der DB
-bleibt gleich. Die Antwort meldet trotzdem die um 1 erhöhte Version, da der Service
-sie nach dem COMMIT selbst hochzählt. Ein folgendes PUT mit diesem ETag
-funktioniert, ein GET mit `If-None-Match` liefert dann aber 200 statt 304.
-
-`DELETE /rest/{id}` löscht mit der Rolle `admin` oder `student` den Studierenden;
-Adresse und Prüfungsleistungen werden über `cascade="save-update, delete"` in der Entity mitgelöscht. Bei berechtigten Requests antwortet der Server
-wie im Beispiel immer mit 204, auch wenn es die ID nicht gibt: DELETE ist
-idempotent, danach existiert der Datensatz in jedem Fall nicht.
-
-Im Dev-Modus lädt `QUERY /dev/db_populate` mit einem Admin-Bearer-Token die
-Datenbank neu. Die Integrationstests rufen den Endpunkt vor jedem Testlauf auf, damit sie immer mit denselben Testdaten
-beginnen; in Bruno steht er im Ordner *Dev* nach dem Login im Ordner *Token*.
-Wie im Beispiel ist der Endpunkt auf die Rolle Admin beschränkt.
-
-**Stand:** Alle Funktionen sind umgesetzt; offen sind Code-Review, Clean-Up und
-Abgabe (siehe GitHub Project). Mail sowie AsciiDoctor und PlantUML werden für
-Aufgabe 1 nicht verlangt und sind bewusst nicht umgesetzt.
-
-Datenmodell: Student mit einer 1:1-Beziehung zu Adresse und einer 1:N-Beziehung zu
-Prüfungsleistungen (siehe `src/student/entity`).
-
-Das Repository unterstützt bereits optionale Pagination, z.B. mit
-`Pageable(number=0, size=2)`: Seiten beginnen bei 0; `size=0` oder kein `Pageable` liefert
-alle Treffer. Die Abfrage sortiert nach ID und begrenzt die Treffer mit SQL-`LIMIT`
-und `OFFSET`. `StudentService.find` nimmt ebenfalls optional `Pageable` entgegen
-und gibt es an das Repository weiter. Der Service liefert weiterhin eine Liste
-von DTOs und wirft bei einem leeren Ergebnis `NotFoundError`, auch bei einer
-leeren Seite.
-
-`GET /rest?page=1&size=2` liefert die zweite Seite mit höchstens zwei Treffern
-im Feld `content` der JSON-Seitenantwort. Ohne Seitenparameter gelten `page=0`
-und `size=5` wie im Beispiel.
-Erlaubt sind `page >= 0` und `0 <= size <= 100`; `size=0` liefert unabhängig
-von `page` alle Treffer. Beide Suchfilter lassen sich mit Pagination kombinieren.
-Ungültige Werte führen zu HTTP 422, eine leere Seite zu HTTP 404 mit ProblemDetails.
-Das Feld `page` enthält `size`, `number`, `total_elements` und `total_pages`.
-
-`StudentRepository.count` ermittelt bereits die Gesamtanzahl mit denselben
-optionalen Suchfiltern wie `find`, einschließlich kombinierter Filter. Die
-SQL-Zählabfrage zählt Studierende ohne Joins und unabhängig von der Pagination;
-ohne Treffer liefert sie 0. `StudentService.count(nachname, email)` stellt diese
-Zählung mit eigener Session-Verwaltung bereit und liefert ebenfalls 0 ohne
-`NotFoundError`. Der Router nutzt diese Zählung für die Gesamtanzahl der
-gefilterten Treffer.
-
-Die REST-Suche verwendet folgende Pydantic-Antwortmodelle:
-`StudentPageModel` enthält `content` mit den Studierendendaten und `page` mit
-`size`, `number` (nullbasiert), `total_elements` und `total_pages`.
-Die Struktur entspricht dem FastAPI-Beispiel. `PageMetaModel.from_pageable`
-berechnet die Seitenanzahl aus Pagination und Gesamtanzahl mit Aufrundung.
-Ohne Treffer ergeben sich bei positiver Seitengröße 0 Seiten; `size=0` ergibt
-wie im Beispiel stets eine unbegrenzte Seite. Größe und angefragte Seitennummer
-werden unverändert übernommen. Suchparameter und Pagination einschließlich
-Seitenmetadaten sind damit abgeschlossen. Clients lesen die Treffer nun aus
-`content` statt aus einer JSON-Liste auf oberster Ebene.
+Aufgaben stehen als Issues im
+[GitHub Project](https://github.com/users/JM01332/projects/1). 

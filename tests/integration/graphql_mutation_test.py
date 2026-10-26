@@ -4,7 +4,7 @@ Angelehnt an `tests/integration/graphql_api/mutation_test.py` im Beispielprojekt
 """
 
 from http import HTTPStatus
-from random import randint
+from itertools import count
 from typing import Any, Final
 from uuid import uuid4
 lazy from collections.abc import Callable
@@ -14,6 +14,9 @@ lazy from httpx import Client
 GRAPHQL_PATH: Final = "/graphql"
 PASSWORD: Final = "p"  # ruff: ignore[hardcoded-password-string]
 TOKEN_LAUFZEIT: Final = 1800
+
+_matrikelnummern: Final = count(920000)
+"""Fortlaufende Matrikelnummern, eigener Bereich wie in student_write_test.py."""
 
 
 def _mutation(
@@ -26,14 +29,14 @@ def _mutation(
 
 
 def _create(username: str, plz: str = "76133") -> str:
-    """create-Mutation mit zufälliger Matrikelnummer und Email."""
+    """create-Mutation mit eindeutiger Matrikelnummer und Email."""
     return f"""mutation {{ create(studentInput: {{
-      matrikelnummer: "{randint(500000, 999999)}", nachname: "Graph",
+      matrikelnummer: "{next(_matrikelnummern)}", nachname: "Graph",
       vorname: "Gustav", email: "{username}@h-ka.de", username: "{username}",
       adresse: {{ plz: "{plz}", ort: "Karlsruhe" }},
       pruefungsleistungen: [{{ modul: "Softwareengineering", note: "1.3",
         semester: "WS 2026/27" }}]
-    }}) {{ id }} }}"""  # ruff: ignore[suspicious-non-cryptographic-random-usage]
+    }}) {{ id }} }}"""
 
 
 def test_create(client: Client, login: Callable[[str, str], str]) -> None:
